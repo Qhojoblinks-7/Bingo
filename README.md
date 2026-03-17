@@ -1,54 +1,148 @@
-# Bingo Project Documentation
+# BinGo 🚛
 
-## Project Overview
-Bingo is an engaging game that brings together players around the classic game of bingo. This project aims to implement a fully functional bingo game that is both user-friendly and versatile, allowing for various game configurations and features.
+![BinGo Logo](./bingo-customer/assets/images/logo2.png)
 
-## Architecture
-The Bingo application follows a modular architecture pattern which includes:
-- **Frontend**: Developed using React for a responsive user interface
-- **Backend**: Node.js and Express for handling game logic and player interactions
-- **Database**: MongoDB for storing user data and game records.
+**Clean communities, one tap at a time.**
 
-## Features
-- **Multiple Game Modes**: Supports both single-player and multiplayer modes.
-- **Customizable Boards**: Users can create bingo boards with varying sizes and themes.
-- **Real-time Gameplay**: Utilizes WebSocket for real-time interaction between players.
-- **User Accounts and Leaderboard**: Players can register and track their scores.
+BinGo is a decentralized, on-demand waste management platform designed to bridge the gap between urban households and independent tricycle waste operators in Accra, Ghana.
 
-## Installation
-To set up the Bingo project, follow these steps:
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/Qhojoblinks-7/Bingo.git
-   cd Bingo
-   ```
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-3. Start the application:
-   ```bash
-   npm start
-   ```
+---
 
-## Usage
-Once installed, open your browser and navigate to `http://localhost:3000`. You will be greeted with the home screen where you can choose to join a game or create a new one.
+## 📱 Apps
 
-## Contribution Guidelines
-Contributions are welcome! To contribute, please follow these steps:
-1. Fork the repository.
-2. Create your feature branch:
-   ```bash
-   git checkout -b feature/YourFeature
-   ```
-3. Commit your changes:
-   ```bash
-   git commit -m 'Add some feature'
-   ```
-4. Push to the branch:
-   ```bash
-   git push origin feature/YourFeature
-   ```
-5. Open a pull request.
+### BinGo Customer
+The customer-facing app for requesting waste collection services.
 
-Thank you for considering contributing to the Bingo project!
+**Location:** [`bingo-customer/`](bingo-customer/)
+
+**Features:**
+- On-demand waste collection scheduling
+- Automatic GPS location capture
+- Real-time rider tracking
+- Proof of service verification
+- Digital payment (MoMo integration)
+
+**Tech Stack:**
+- Expo SDK 54
+- React Native
+- Zustand (State Management)
+- Django REST API
+
+---
+
+### BinGo Pilot
+The rider-side app for waste collection pilots.
+
+**Location:** [`bingo-pilot/`](bingo-pilot/)
+
+**Features:**
+- Geofencing-based mission assignment
+- GPS navigation to pickup locations
+- Duty status management (Online/Offline)
+- Camera capture for proof of service
+- Earnings and activity tracking
+
+**Tech Stack:**
+- Expo SDK 54
+- React Native
+- react-native-maps (Navigation)
+- expo-location (GPS Tracking)
+- Zustand (State Management)
+
+---
+
+## 🏗️ System Architecture
+
+```
+┌─────────────────┐      ┌─────────────────┐
+│  BinGo Customer │      │  BinGo Pilot    │
+│      App        │      │      App        │
+└────────┬────────┘      └────────┬────────┘
+         │                        │
+         └────────┬───────────────┘
+                  │
+                  ▼
+         ┌─────────────────┐
+         │  Django Backend │
+         │  (REST API)     │
+         └────────┬────────┘
+                  │
+         ┌────────┴────────┐
+         │                 │
+         ▼                 ▼
+   ┌──────────┐     ┌──────────┐
+   │PostgreSQL│     │  PostGIS │
+   │   (DB)   │     │  (GIS)   │
+   └──────────┘     └──────────┘
+```
+
+---
+
+## 🌟 The Vision
+
+In many urban centers, waste collection is inconsistent and opaque. BinGo solves this by:
+
+- **On-Demand Scheduling:** No more waiting for "trash days."
+- **Digital Escrow:** Secure MoMo payments released only upon "Proof of Service."
+- **Verification:** GPS and Photo-based validation to ensure bins are actually emptied.
+- **Geofencing:** Automatic mission assignment to the nearest pilot.
+
+---
+
+## 🛠️ Tech Stack
+
+| Component | Technology |
+|-----------|------------|
+| Frontend | React Native (Expo SDK 54) |
+| State Management | Zustand |
+| Backend | Django REST Framework |
+| Database | PostgreSQL + PostGIS |
+| Maps | react-native-maps |
+| Location | expo-location |
+
+---
+
+## 🤝 Social Impact (SDGs)
+
+- **Goal 11:** Sustainable Cities and Communities
+- **Goal 8:** Decent Work and Economic Growth (Empowering tricycle riders)
+- **Goal 3:** Good Health and Well-being (Reducing illegal dumping)
+
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
+
+- Node.js 18+
+- Expo CLI
+- Python 3.10+
+- PostgreSQL with PostGIS extension
+
+### Installation
+
+**Customer App:**
+```bash
+cd bingo-customer
+npm install
+npx expo start
+```
+
+**Pilot App:**
+```bash
+cd bingo-pilot
+npm install
+npx expo start
+```
+
+---
+
+## 📄 License
+
+Proprietary - BinGo Waste Management Ltd.
+
+---
+
+## 👤 Author
+
+Developed for BinGo - Revolutionizing waste management in Accra, Ghana.

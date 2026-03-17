@@ -1,7 +1,8 @@
-
 ---
 
 # BinGo 🚛
+
+![BinGo Logo](./assets/images/logo2.png)
 
 **Clean communities, one tap at a time.**
 
@@ -26,7 +27,7 @@ In many urban centers, waste collection is inconsistent and opaque. BinGo solves
 
 ## 📂 Project Structure (Frontend)
 
-```text
+```
 bingo-customer/
 ├── app/                  # Expo Router (JS/JSX)
 │   ├── _layout.js        # Root configuration & Providers
