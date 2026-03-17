@@ -3,8 +3,12 @@ import { View, Animated, Text, StyleSheet, StatusBar } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import * as SecureStore from 'expo-secure-store';
+import * as ExpoSplashScreen from 'expo-splash-screen';
 import { COLORS } from '../constants/Colors';
 import { useAppTheme } from '../hooks/useThemeContext';
+
+// Prevent auto-hide to keep splash visible while app loads
+ExpoSplashScreen.preventAutoHideAsync();
 
 export default function SplashScreen() {
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -56,12 +60,14 @@ export default function SplashScreen() {
     };
 
     // Start navigation after animation completes
-    const timer = setTimeout(() => {
+    const timer = setTimeout(async () => {
+      // Hide the native splash screen
+      await ExpoSplashScreen.hideAsync();
       initializeApp();
     }, 2000);
 
     return () => clearTimeout(timer);
-  }, []);
+  }, [router, fadeAnim, scaleAnim]);
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
