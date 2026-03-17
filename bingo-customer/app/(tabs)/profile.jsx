@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, Switch, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -6,12 +6,22 @@ import { BinGoHeader } from '@/components/BinGoHeader';
 import { useAppTheme } from '@/hooks/useThemeContext';
 import { useColors } from '@/hooks/useColors';
 import { sendTestNotification } from '@/hooks/usePushNotifications';
+import { useProfileStore } from '@/stores';
 
 export default function Profile() {
   const router = useRouter();
-  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
-  const { isDark, mode, setThemeMode } = useAppTheme();
+  const { isDark, setThemeMode } = useAppTheme();
   const colors = useColors();
+  
+  // Use profile store
+  const { 
+    notificationsEnabled, 
+    setNotificationsEnabled, 
+    themeMode, 
+    cycleThemeMode, 
+    getThemeModeLabel,
+    logout: storeLogout,
+  } = useProfileStore();
 
   const handleLogout = () => {
     Alert.alert(
@@ -23,6 +33,7 @@ export default function Profile() {
           text: 'Logout', 
           style: 'destructive',
           onPress: () => {
+            storeLogout();
             router.replace('/login');
           }
         },
@@ -32,7 +43,6 @@ export default function Profile() {
 
   const handleNotificationToggle = (value) => {
     setNotificationsEnabled(value);
-    console.log('Notification preference updated:', value);
   };
 
   const handleTestNotification = async () => {
@@ -44,23 +54,8 @@ export default function Profile() {
     }
   };
 
-  const getThemeModeLabel = () => {
-    switch (mode) {
-      case 'light':
-        return 'Light';
-      case 'dark':
-        return 'Dark';
-      case 'device':
-        return 'System';
-      default:
-        return 'System';
-    }
-  };
-
-  const cycleThemeMode = async () => {
-    const modes = ['device', 'light', 'dark'];
-    const currentIndex = modes.indexOf(mode);
-    const nextMode = modes[(currentIndex + 1) % modes.length];
+  const handleThemePress = async () => {
+    const nextMode = cycleThemeMode();
     await setThemeMode(nextMode);
   };
 
@@ -171,7 +166,7 @@ export default function Profile() {
       color: colors.muted,
       fontSize: 12,
       marginTop: 20,
-    }
+    },
   }), [colors]);
 
   const ProfileItem = ({ icon, title, subtitle, onPress, isLast = false }) => (
@@ -267,7 +262,7 @@ export default function Profile() {
             <Ionicons name="chevron-forward" size={18} color={colors.muted} />
           </Pressable>
           <Pressable 
-            onPress={cycleThemeMode}
+            onPress={handleThemePress}
             style={({ pressed }) => [
               styles.item,
               pressed && styles.itemPressed,

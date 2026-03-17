@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useMemo } from "react";
 import { View, Text, StyleSheet, Pressable, ScrollView } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -7,24 +7,35 @@ import { BinGoInput } from "../components/BinGoInput";
 import { BinGoButton } from "../components/BinGoButton";
 import { SuccessModal } from "../components/SuccessModal";
 import { useColors } from "../hooks/useColors";
+import { useTopUpStore, useWalletStore, TopUpMethods, QuickAmounts } from "../stores";
 
 export default function TopUp() {
   const router = useRouter();
   const colors = useColors();
-  const [amount, setAmount] = useState("");
-  const [method, setMethod] = useState("momo");
-  const [showSuccess, setShowSuccess] = useState(false);
+  
+  // Use stores
+  const { amount, method, isProcessing, isValidAmount, setAmount, setMethod, processTopUp, reset } = useTopUpStore();
+  const { addBalance } = useWalletStore();
+  
+  // Local UI state
+  const [showSuccess, setShowSuccess] = React.useState(false);
 
-  const quickAmounts = ["10", "20", "50", "100"];
+  const quickAmounts = QuickAmounts.map(String);
 
-  const handleTopUp = () => {
-    // Logic: This is where you'd call your Paystack/Django API
-    // For now, we simulate a successful transaction:
-    setShowSuccess(true);
+  const handleTopUp = async () => {
+    // Process top-up
+    const result = await processTopUp();
+    
+    if (result) {
+      // Add to wallet
+      addBalance(parseFloat(amount));
+      setShowSuccess(true);
+    }
   };
 
   const handleCloseModal = () => {
     setShowSuccess(false);
+    reset(); // Reset top-up store
     router.replace("/(tabs)"); // Go back home after success
   };
 
@@ -207,7 +218,8 @@ export default function TopUp() {
           <BinGoButton
             title={`Top Up GH₵${amount || "0"}`}
             onPress={handleTopUp}
-            disabled={!amount}
+            disabled={!isValidAmount || isProcessing}
+            loading={isProcessing}
           />
         </View>
       </ScrollView>

@@ -1,6 +1,15 @@
 import React from "react";
-import { View, Text, StyleSheet, Modal, Pressable, Image } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  Modal,
+  Pressable,
+  Image,
+  Linking,
+} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import { COLORS } from "../constants/Colors";
 import { BinGoButton } from "./BinGoButton";
 import { useAppTheme } from "../hooks/useThemeContext";
@@ -13,8 +22,21 @@ export const ProofOfServiceSheet = ({
   riderPhone = "+233 00 000 0000",
   completedAt = "Recently",
 }) => {
+  const router = useRouter();
   const { isDark } = useAppTheme();
   const theme = isDark ? COLORS.dark : COLORS.light;
+
+  // Handle Call Support
+  const handleCallSupport = () => {
+    Linking.openURL("tel:+233500000000");
+    onClose();
+  };
+
+  // Handle Chat
+  const handleChat = () => {
+    router.push("/chat");
+    onClose();
+  };
 
   return (
     <Modal
@@ -72,11 +94,17 @@ export const ProofOfServiceSheet = ({
           <View style={styles.supportSection}>
             <Text style={[styles.sectionTitle, { color: COLORS.muted }]}>Need Help?</Text>
             <View style={styles.supportButtons}>
-              <Pressable style={styles.supportButton}>
+              <Pressable 
+                style={styles.supportButton}
+                onPress={handleCallSupport}
+              >
                 <Ionicons name="call" size={20} color={COLORS.primary} />
                 <Text style={[styles.supportText, { color: COLORS.primary }]}>Call Support</Text>
               </Pressable>
-              <Pressable style={styles.supportButton}>
+              <Pressable 
+                style={styles.supportButton}
+                onPress={handleChat}
+              >
                 <Ionicons name="chatbubble" size={20} color={COLORS.primary} />
                 <Text style={[styles.supportText, { color: COLORS.primary }]}>Chat</Text>
               </Pressable>

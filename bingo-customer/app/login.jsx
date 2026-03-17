@@ -112,7 +112,10 @@ export default function LoginScreen() {
           </View>
 
           {/* Forgot Password */}
-          <TouchableOpacity style={styles.forgotPassword}>
+          <TouchableOpacity 
+            style={styles.forgotPassword}
+            onPress={() => router.push('/forgot-password')}
+          >
             <Text style={[styles.forgotPasswordText, { color: COLORS.primary }]}>Forgot Password?</Text>
           </TouchableOpacity>
 
@@ -142,9 +145,9 @@ export default function LoginScreen() {
 
         {/* Sign Up Link */}
         <View style={styles.footer}>
-          <Text style={[styles.footerText, { color: COLORS.muted }]}>Don't have an account?</Text>
+          <Text style={[styles.footerText, { color: COLORS.muted }]}>Don&apos;t have an account?</Text>
           <TouchableOpacity>
-            <Text style={[styles.signUpText, { color: COLORS.primary }]}> Sign Up</Text>
+            <Text style={[styles.signUpText, { color: COLORS.primary }]} onPress={() => router.push('/onboarding')}> Sign Up</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>

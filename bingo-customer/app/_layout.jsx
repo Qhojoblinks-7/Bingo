@@ -7,6 +7,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { AppThemeProvider, useAppTheme } from '@/hooks/useThemeContext';
 import { COLORS } from '@/constants/Colors';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
+import { AppProvider } from '@/stores';
 
 export const unstable_settings = {
   anchor: '(tabs)',
@@ -33,7 +34,7 @@ function RootLayoutContent() {
       >
         {/* Splash Screen - Initial loading screen */}
         <Stack.Screen 
-          name="index" 
+          name="splash" 
           options={{ 
             headerShown: false,
             animation: 'fade',
@@ -43,6 +44,24 @@ function RootLayoutContent() {
         {/* Login Screen */}
         <Stack.Screen 
           name="login" 
+          options={{ 
+            headerShown: false,
+            animation: 'fade',
+          }} 
+        />
+        
+        {/* Forgot Password Screen */}
+        <Stack.Screen 
+          name="forgot-password" 
+          options={{ 
+            headerShown: false,
+            animation: 'fade',
+          }} 
+        />
+        
+        {/* Verify Email Screen */}
+        <Stack.Screen 
+          name="verify-email" 
           options={{ 
             headerShown: false,
             animation: 'fade',
@@ -158,7 +177,9 @@ function RootLayoutContent() {
 export default function RootLayout() {
   return (
     <AppThemeProvider>
-      <RootLayoutContent />
+      <AppProvider>
+        <RootLayoutContent />
+      </AppProvider>
     </AppThemeProvider>
   );
 }

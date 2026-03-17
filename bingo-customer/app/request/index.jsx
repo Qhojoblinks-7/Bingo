@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { View, StyleSheet, ScrollView, Text, Pressable, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
@@ -11,36 +11,35 @@ import { PaymentSelectionSheet } from '../../components/PaymentSelectionSheet';
 import { SuccessModal } from '../../components/SuccessModal';
 import { COLORS } from '../../constants/Colors';
 import { useAppTheme } from '../../hooks/useThemeContext';
+import { useRequestStore, useWalletStore, BinSizes, PaymentMethods } from '../../stores';
 
 export default function RequestPickup() {
   const router = useRouter();
   const { isDark } = useAppTheme();
   const theme = isDark ? COLORS.dark : COLORS.light;
   
-  const [address, setAddress] = useState('');
-  const [binSize, setBinSize] = useState('Standard');
-  const [notes, setNotes] = useState('');
-  const [showBinPicker, setShowBinPicker] = useState(false);
-  const [showPaymentSheet, setShowPaymentSheet] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState('momo');
-  const [showSuccess, setShowSuccess] = useState(false);
+  // Use stores
+  const { 
+    address, binSize, notes, paymentMethod, isProcessing, error,
+    setAddress, setBinSize, setNotes, setPaymentMethod, setProcessing, setError, reset 
+  } = useRequestStore();
+  const { balance, deductBalance, minimumPickupPrice } = useWalletStore();
   
-  // Payment flow states
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [error, setError] = useState(null);
-  const [showErrorBanner, setShowErrorBanner] = useState(false);
+  // Local UI state
+  const [showBinPicker, setShowBinPicker] = React.useState(false);
+  const [showPaymentSheet, setShowPaymentSheet] = React.useState(false);
+  const [showSuccess, setShowSuccess] = React.useState(false);
+  const [showErrorBanner, setShowErrorBanner] = React.useState(false);
 
-  // Mock wallet balance - in production, fetch from Django API
-  const walletBalance = '25.00';
-
+  // Bin options derived from store
   const binOptions = [
-    { label: 'Standard', price: '20', id: 'standard' },
-    { label: 'Large', price: '40', id: 'large' },
-    { label: 'Extra Large', price: '60', id: 'extra-large' },
+    { label: BinSizes.STANDARD.label, price: BinSizes.STANDARD.price, id: BinSizes.STANDARD.id },
+    { label: BinSizes.LARGE.label, price: BinSizes.LARGE.price, id: BinSizes.LARGE.id },
+    { label: BinSizes.EXTRA_LARGE.label, price: BinSizes.EXTRA_LARGE.price, id: BinSizes.EXTRA_LARGE.id },
   ];
 
-  const selectedPrice = binOptions.find(o => o.label === binSize)?.price || '20';
-  const hasSufficientBalance = parseFloat(walletBalance) >= parseFloat(selectedPrice);
+  const selectedPrice = binOptions.find(o => o.id === binSize)?.price || '20';
+  const hasSufficientBalance = parseFloat(balance) >= parseFloat(selectedPrice);
 
   const handleConfirm = () => {
     // Show payment selection sheet
@@ -52,13 +51,13 @@ export default function RequestPickup() {
     setShowPaymentSheet(false);
     
     // Start processing
-    setIsProcessing(true);
+    setProcessing(true);
     setError(null);
     setShowErrorBanner(false);
 
     // Client-side balance check
     if (!hasSufficientBalance) {
-      setIsProcessing(false);
+      setProcessing(false);
       setError('Insufficient balance. Please top up your wallet.');
       setShowErrorBanner(true);
       return;
@@ -75,15 +74,20 @@ export default function RequestPickup() {
         // Trigger haptic feedback
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         
+        // Deduct from wallet if using wallet
+        if (paymentMethod === 'wallet') {
+          deductBalance(parseFloat(selectedPrice));
+        }
+        
         // Show success modal
-        setIsProcessing(false);
+        setProcessing(false);
         setShowSuccess(true);
       } else {
         throw new Error('No riders available');
       }
     } catch (err) {
       // Handle error
-      setIsProcessing(false);
+      setProcessing(false);
       setError('Sorry, no riders are currently active in your area. Please try again in a few minutes.');
       setShowErrorBanner(true);
     }
@@ -91,6 +95,7 @@ export default function RequestPickup() {
 
   const handleSuccessClose = () => {
     setShowSuccess(false);
+    reset(); // Reset request store
     // Use replace to clear navigation history
     router.replace('/(tabs)/activity');
   };
@@ -224,7 +229,7 @@ export default function RequestPickup() {
         onClose={() => setShowPaymentSheet(false)}
         selectedMethod={paymentMethod}
         onSelectMethod={setPaymentMethod}
-        walletBalance={walletBalance}
+        walletBalance={balance}
         totalAmount={selectedPrice}
         onConfirm={handlePaymentConfirm}
       />

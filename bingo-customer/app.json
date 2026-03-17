@@ -4,7 +4,7 @@
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "backgroundImage": "./assets/images/android-icon-background.png",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
+        "foregroundImage": "./assets/images/brand_icon.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "edgeToEdgeEnabled": true,
@@ -21,11 +21,11 @@
       },
       "router": {}
     },
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/logo.png",
     "ios": {
       "supportsTablet": true
     },
-    "name": "bingo-customer",
+    "name": "BinGo Customer",
     "newArchEnabled": true,
     "orientation": "portrait",
     "plugins": [
@@ -37,15 +37,15 @@
           "dark": {
             "backgroundColor": "#1A1A2E"
           },
-          "image": "./assets/images/splash-icon.png",
-          "imageWidth": 200,
+          "image": "./assets/images/logo.png",
+          "imageWidth": 400,
           "resizeMode": "contain"
         }
       ],
       [
         "expo-notifications",
         {
-          "icon": "./assets/images/icon.png",
+          "icon": "./assets/images/brand_icon.png",
           "color": "#E6F4FE"
         }
       ]
@@ -55,7 +55,7 @@
     "userInterfaceStyle": "automatic",
     "version": "1.0.0",
     "web": {
-      "favicon": "./assets/images/favicon.png",
+      "favicon": "./assets/images/brand_icon.png",
       "output": "static"
     }
   }
