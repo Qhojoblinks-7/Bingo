@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import { BinGoHeader } from '@/components/BinGoHeader';
 import { useAppTheme } from '@/hooks/useThemeContext';
 import { useColors } from '@/hooks/useColors';
+import { sendTestNotification } from '@/hooks/usePushNotifications';
 
 export default function Profile() {
   const router = useRouter();
@@ -32,6 +33,15 @@ export default function Profile() {
   const handleNotificationToggle = (value) => {
     setNotificationsEnabled(value);
     console.log('Notification preference updated:', value);
+  };
+
+  const handleTestNotification = async () => {
+    try {
+      await sendTestNotification();
+      Alert.alert('Success', 'Test notification sent!');
+    } catch (error) {
+      Alert.alert('Error', 'Failed to send notification');
+    }
   };
 
   const getThemeModeLabel = () => {
@@ -239,6 +249,23 @@ export default function Profile() {
               thumbColor={colors.white}
             />
           </View>
+          <Pressable 
+            onPress={handleTestNotification}
+            style={({ pressed }) => [
+              styles.item,
+              pressed && styles.itemPressed,
+              styles.borderBottom
+            ]}
+          >
+            <View style={styles.iconContainer}>
+              <Ionicons name="notifications-outline" size={20} color={colors.primary} />
+            </View>
+            <View style={styles.itemContent}>
+              <Text style={styles.itemTitle}>Test Notification</Text>
+              <Text style={styles.itemSubtitle}>Tap to send a test</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={colors.muted} />
+          </Pressable>
           <Pressable 
             onPress={cycleThemeMode}
             style={({ pressed }) => [

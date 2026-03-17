@@ -6,6 +6,7 @@ import 'react-native-reanimated';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { AppThemeProvider, useAppTheme } from '@/hooks/useThemeContext';
 import { COLORS } from '@/constants/Colors';
+import { usePushNotifications } from '@/hooks/usePushNotifications';
 
 export const unstable_settings = {
   anchor: '(tabs)',
@@ -14,6 +15,14 @@ export const unstable_settings = {
 function RootLayoutContent() {
   const colorScheme = useColorScheme();
   const { resolvedScheme, isDark } = useAppTheme();
+  
+  // Initialize push notifications
+  const { expoPushToken, notification } = usePushNotifications();
+  
+  // Log push token for testing
+  if (expoPushToken) {
+    console.log('Push token ready:', expoPushToken);
+  }
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
