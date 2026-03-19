@@ -42,10 +42,10 @@ export default function Splash() {
       }),
     ]).start();
 
-    // Navigate after animation
+    // Navigate after animation - skip auth and go directly to main app
     const timer = setTimeout(() => {
-      router.replace('/login');
-    }, 2500);
+      router.replace('/(tabs)');
+    }, 1500);
 
     return () => clearTimeout(timer);
   }, []);

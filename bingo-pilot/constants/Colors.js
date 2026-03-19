@@ -4,6 +4,7 @@ export const COLORS = {
   secondary: '#1E293B',    // Pilot Slate (Dark Blue/Grey)
   background: '#0F172A',   // Deep Navy Background
   surface: '#1E293B',      // Card surfaces
+  surfaceLight: '#334155', // Lighter surface for buttons
   white: '#FFFFFF',
   text: '#F8FAFC',         // High contrast text
   muted: '#94A3B8',        // Muted slate

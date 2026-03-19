@@ -1,260 +1,114 @@
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView } from 'react-native';
-import COLORS from '../../constants/Colors';
+import React, { useState, useRef, useEffect } from 'react';
+import { View, StyleSheet } from 'react-native';
+import MapView, { PROVIDER_GOOGLE } from 'react-native-maps';
+import { DutyHeader } from '../../components/pilot/DutyHeader';
+import { MissionController } from '../../components/pilot/MissionController';
+import { RecenterButton, TrafficToggle, SOSButton } from '../../components/shared';
+import { COLORS } from '../../constants/Colors';
+import useMissionStore from '../../stores/useMissionStore';
 
-export default function Dashboard() {
+export default function PilotHomeScreen() {
+  // Connect to mission store
+  const { isOnline, setOnline, activeMission, missionStatus, nearbyMissions } = useMissionStore();
+  
+  const [showTraffic, setShowTraffic] = useState(false);
+  const mapRef = useRef(null);
+
+  // Get current user location (would come from useLocation hook in production)
+  const userLocation = { latitude: 5.6037, longitude: -0.1870 };
+
+  const handleRecenter = () => {
+    if (mapRef.current) {
+      mapRef.current.animateToRegion({
+        latitude: userLocation.latitude,
+        longitude: userLocation.longitude,
+        latitudeDelta: 0.05,
+        longitudeDelta: 0.05,
+      }, 500);
+    }
+  };
+
+  const handleToggleTraffic = () => {
+    setShowTraffic(!showTraffic);
+  };
+
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        {/* Header */}
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.greeting}>Good morning, Pilot!</Text>
-            <Text style={styles.status}>You're Online</Text>
-          </View>
-          <TouchableOpacity style={styles.statusToggle}>
-            <Text style={styles.statusToggleText}>Go Offline</Text>
-          </TouchableOpacity>
+    <View style={styles.container}>
+      {/* LAYER 1: THE TACTICAL MAP */}
+      <MapView
+        ref={mapRef}
+        provider={PROVIDER_GOOGLE}
+        style={StyleSheet.absoluteFillObject}
+        initialRegion={{
+          latitude: 5.6037, // Accra
+          longitude: -0.1870,
+          latitudeDelta: 0.05,
+          longitudeDelta: 0.05,
+        }}
+        customMapStyle={mapStyle}
+        showsUserLocation={true}
+        followsUserLocation={true}
+        showsTraffic={showTraffic}
+        tintColor={COLORS.primary}
+      />
+
+      {/* LAYER 2: FLOATING UI MODULES */}
+      <View style={styles.uiOverlay} pointerEvents="box-none">
+        
+        {/* TOP: ONLY THE HEADER (Clean & Minimal) */}
+        <View style={styles.topSection}>
+          <DutyHeader 
+            isOnline={isOnline} 
+            onToggle={() => setOnline(!isOnline)} 
+          />
         </View>
 
-        {/* Mission Radar Card */}
-        <View style={styles.radarCard}>
-          <View style={styles.radarHeader}>
-            <Text style={styles.radarTitle}>Mission Radar</Text>
-            <View style={styles.radarBadge}>
-              <Text style={styles.radarBadgeText}>3 Nearby</Text>
-            </View>
-          </View>
-          <Text style={styles.radarSubtitle}>Tap to view available missions</Text>
-          
-          <View style={styles.missionList}>
-            <View style={styles.missionItem}>
-              <View style={styles.missionInfo}>
-                <Text style={styles.missionDistance}>0.8 km</Text>
-                <Text style={styles.missionAddress}>123 Main Street</Text>
-                <Text style={styles.missionPrice}>$15.00</Text>
-              </View>
-              <TouchableOpacity style={styles.acceptButton}>
-                <Text style={styles.acceptButtonText}>Accept</Text>
-              </TouchableOpacity>
-            </View>
-            
-            <View style={styles.missionItem}>
-              <View style={styles.missionInfo}>
-                <Text style={styles.missionDistance}>1.2 km</Text>
-                <Text style={styles.missionAddress}>456 Oak Avenue</Text>
-                <Text style={styles.missionPrice}>$22.00</Text>
-              </View>
-              <TouchableOpacity style={styles.acceptButton}>
-                <Text style={styles.acceptButtonText}>Accept</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
+        {/* RIGHT SIDE: UTILITY BUTTONS */}
+        <View style={styles.rightSideUtilities}>
+          <TrafficToggle 
+            isEnabled={showTraffic} 
+            onToggle={handleToggleTraffic} 
+          />
+          <RecenterButton onPress={handleRecenter} />
         </View>
 
-        {/* Stats Row */}
-        <View style={styles.statsRow}>
-          <View style={styles.statCard}>
-            <Text style={styles.statValue}>24</Text>
-            <Text style={styles.statLabel}>Today's Missions</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statValue}>$186</Text>
-            <Text style={styles.statLabel}>Today's Earnings</Text>
-          </View>
-        </View>
+        {/* LEFT SIDE: SOS BUTTON */}
+        <SOSButton location={userLocation} />
 
-        {/* Quick Actions */}
-        <View style={styles.quickActions}>
-          <Text style={styles.sectionTitle}>Quick Actions</Text>
-          <View style={styles.actionGrid}>
-            <TouchableOpacity style={styles.actionButton}>
-              <Text style={styles.actionIcon}>📍</Text>
-              <Text style={styles.actionLabel}>Location</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.actionButton}>
-              <Text style={styles.actionIcon}>📞</Text>
-              <Text style={styles.actionLabel}>Support</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.actionButton}>
-              <Text style={styles.actionIcon}>💼</Text>
-              <Text style={styles.actionLabel}>Earnings</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.actionButton}>
-              <Text style={styles.actionIcon}>⚙️</Text>
-              <Text style={styles.actionLabel}>Settings</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+        {/* BOTTOM: MISSION CONTROLLER (State Machine) */}
+        {/* MissionController handles: OFFER → EN_ROUTE → ARRIVED */}
+        <MissionController />
+      </View>
+    </View>
   );
 }
+
+const mapStyle = [
+  { "elementType": "geometry", "stylers": [{ "color": "#1e293b" }] },
+  { "elementType": "labels.text.fill", "stylers": [{ "color": "#94a3b8" }] },
+  { "featureType": "road", "elementType": "geometry", "stylers": [{ "color": "#334155" }] },
+  { "featureType": "water", "elementType": "geometry", "stylers": [{ "color": "#0f172a" }] }
+];
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,
   },
-  scrollContent: {
-    padding: 16,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  greeting: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: COLORS.text,
-  },
-  status: {
-    fontSize: 14,
-    color: COLORS.primary,
-    marginTop: 4,
-  },
-  statusToggle: {
-    backgroundColor: COLORS.error,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-  },
-  statusToggleText: {
-    color: COLORS.white,
-    fontWeight: '600',
-    fontSize: 14,
-  },
-  radarCard: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  radarHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  radarTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: COLORS.text,
-  },
-  radarBadge: {
-    backgroundColor: COLORS.primary,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  radarBadgeText: {
-    color: COLORS.white,
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  radarSubtitle: {
-    fontSize: 14,
-    color: COLORS.muted,
-    marginBottom: 16,
-  },
-  missionList: {
-    gap: 12,
-  },
-  missionItem: {
-    backgroundColor: COLORS.background,
-    borderRadius: 12,
-    padding: 16,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  missionInfo: {
+  uiOverlay: {
     flex: 1,
+    paddingTop: 60,
+    justifyContent: 'space-between',
   },
-  missionDistance: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: COLORS.primary,
+  topSection: {
+    // No extra gap needed since there's only one child now
   },
-  missionAddress: {
-    fontSize: 14,
-    color: COLORS.text,
-    marginTop: 2,
-  },
-  missionPrice: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: COLORS.text,
-    marginTop: 4,
-  },
-  acceptButton: {
-    backgroundColor: COLORS.primary,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 8,
-  },
-  acceptButtonText: {
-    color: COLORS.white,
-    fontWeight: '600',
-  },
-  statsRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 24,
-  },
-  statCard: {
-    flex: 1,
-    backgroundColor: COLORS.surface,
-    borderRadius: 16,
-    padding: 20,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  statValue: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: COLORS.primary,
-  },
-  statLabel: {
-    fontSize: 12,
-    color: COLORS.muted,
-    marginTop: 4,
-    textAlign: 'center',
-  },
-  quickActions: {
-    marginBottom: 24,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: COLORS.text,
-    marginBottom: 16,
-  },
-  actionGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  actionButton: {
-    width: '47%',
-    backgroundColor: COLORS.surface,
-    borderRadius: 12,
-    padding: 20,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  actionIcon: {
-    fontSize: 24,
-    marginBottom: 8,
-  },
-  actionLabel: {
-    fontSize: 14,
-    color: COLORS.text,
-    fontWeight: '500',
-  },
+  rightSideUtilities: {
+    position: 'absolute',
+    right: 0,
+    top: 0,
+    bottom: 110,
+    justifyContent: 'center',
+    paddingBottom: 100,
+  }
 });
