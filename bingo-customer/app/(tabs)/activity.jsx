@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { BinGoHeader } from '@/components/BinGoHeader';
 import { EmptyState } from '@/components/EmptyState';
-import { Skeleton, ActivitySkeleton } from '@/components/Skeleton';
+import { ActivitySkeleton } from '@/components/Skeleton';
 import { ProofOfServiceSheet } from '@/components/ProofOfServiceSheet';
 import { TransactionDetailsSheet } from '@/components/TransactionDetailsSheet';
 import { useColors } from '@/hooks/useColors';
@@ -14,23 +14,21 @@ export default function Activity() {
   const router = useRouter();
   const colors = useColors();
   
-  // Pull to refresh state
   const [refreshing, setRefreshing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   
-  // Use stores
   const {
+    activities,
     activeTab, selectedItem,
-    setActiveTab, setSelectedItem, fetchActivities
+    setActiveTab, setSelectedItem, fetchActivities,
+    isLoading: storeLoading,
   } = useActivityStore();
   const { loadFromActivity: loadProof } = useProofOfServiceStore();
   const { loadFromActivity: loadTransaction } = useTransactionStore();
   
-  // Sheet state from stores
   const [showProofSheet, setShowProofSheet] = React.useState(false);
   const [showTransactionSheet, setShowTransactionSheet] = React.useState(false);
   
-  // Pull to refresh handler
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
@@ -42,7 +40,6 @@ export default function Activity() {
     }
   }, [fetchActivities]);
   
-  // Fetch activities on mount
   React.useEffect(() => {
     const loadData = async () => {
       setIsLoading(true);
@@ -57,22 +54,10 @@ export default function Activity() {
     loadData();
   }, [fetchActivities]);
 
-  // Mock data for your Django backend integration later
-  const pickups = [
-    { id: '1', status: ActivityStatus.IN_TRANSIT, date: 'Today, 2:30 PM', address: 'GA-123-4567', price: '20', type: ActivityType.PICKUP },
-    { id: '2', status: ActivityStatus.COMPLETED, date: 'Mar 14, 2026', address: 'GA-099-1234', price: '40', type: ActivityType.PICKUP, proofImage: null },
-    { id: '3', status: ActivityStatus.COMPLETED, date: 'Mar 10, 2026', address: 'GA-123-4567', price: '20', type: ActivityType.PICKUP, proofImage: null },
-  ];
-
-  const topups = [
-    { id: 'TXN001', status: 'success', date: 'Mar 15, 2026', amount: '50', type: ActivityType.TOPUP, method: 'momo' },
-    { id: 'TXN002', status: 'success', date: 'Mar 12, 2026', amount: '20', type: ActivityType.TOPUP, method: 'card' },
-  ];
-
-  const activePickups = pickups.filter(p => p.status === ActivityStatus.AWAITING || p.status === ActivityStatus.IN_TRANSIT);
-  const completedPickups = pickups.filter(p => p.status === ActivityStatus.COMPLETED);
+  const activePickups = activities.filter(a => a.status === ActivityStatus.AWAITING || a.status === ActivityStatus.IN_TRANSIT);
+  const completedPickups = activities.filter(a => a.status === ActivityStatus.COMPLETED || a.status === ActivityStatus.CANCELLED || a.type === ActivityType.TOPUP);
   
-  const filteredPickups = activeTab === 'active' ? activePickups : [...completedPickups, ...topups];
+  const filteredPickups = activeTab === 'active' ? activePickups : completedPickups;
 
   const handleItemPress = (item) => {
     setSelectedItem(item);
@@ -245,7 +230,7 @@ export default function Activity() {
           />
         }
         ListEmptyComponent={
-          isLoading ? (
+          storeLoading || isLoading ? (
             <View style={styles.loadingContainer}>
               <ActivitySkeleton />
               <ActivitySkeleton style={{ marginTop: 12 }} />

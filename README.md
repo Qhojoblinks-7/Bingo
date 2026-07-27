@@ -18,15 +18,17 @@ The customer-facing app for requesting waste collection services.
 **Features:**
 - On-demand waste collection scheduling
 - Automatic GPS location capture
-- Real-time rider tracking
-- Proof of service verification
-- Digital payment (MoMo integration)
+- Wallet top-up and digital payments
+- Activity history and proof of service
+- Saved locations and payment methods
+- Support and data privacy controls
+- Email authentication and verification
 
 **Tech Stack:**
 - Expo SDK 54
 - React Native
 - Zustand (State Management)
-- Django REST API
+- Supabase (Auth, Database, Storage)
 
 ---
 
@@ -63,17 +65,17 @@ The rider-side app for waste collection pilots.
                   │
                   ▼
          ┌─────────────────┐
-         │  Django Backend │
-         │  (REST API)     │
+         │    Supabase     │
+         │  Auth + DB      │
          └────────┬────────┘
                   │
-         ┌────────┴────────┐
-         │                 │
-         ▼                 ▼
-   ┌──────────┐     ┌──────────┐
-   │PostgreSQL│     │  PostGIS │
-   │   (DB)   │     │  (GIS)   │
-   └──────────┘     └──────────┘
+          ┌───────┴────────┐
+          │                │
+          ▼                ▼
+    ┌─────────────┐  ┌─────────────┐
+    │ PostgreSQL  │  │  Storage    │
+    │  (+ RLS)    │  │ (proof img) │
+    └─────────────┘  └─────────────┘
 ```
 
 ---
@@ -83,9 +85,9 @@ The rider-side app for waste collection pilots.
 In many urban centers, waste collection is inconsistent and opaque. BinGo solves this by:
 
 - **On-Demand Scheduling:** No more waiting for "trash days."
-- **Digital Escrow:** Secure MoMo payments released only upon "Proof of Service."
-- **Verification:** GPS and Photo-based validation to ensure bins are actually emptied.
-- **Geofencing:** Automatic mission assignment to the nearest pilot.
+- **Digital Wallet:** Secure balance stored in Supabase, used for transparent payments.
+- **Verification:** Proof-of-service photos and rider identity shown to customers.
+- **Geofencing:** Automatic pickup assignment to nearby pilots.
 
 ---
 
@@ -95,10 +97,9 @@ In many urban centers, waste collection is inconsistent and opaque. BinGo solves
 |-----------|------------|
 | Frontend | React Native (Expo SDK 54) |
 | State Management | Zustand |
-| Backend | Django REST Framework |
-| Database | PostgreSQL + PostGIS |
-| Maps | react-native-maps |
-| Location | expo-location |
+| Customer Backend | Supabase (Auth + Postgres + Storage) |
+| Navigation | Expo Router |
+| Maps / Location | react-native-maps, expo-location |
 
 ---
 
@@ -116,19 +117,30 @@ In many urban centers, waste collection is inconsistent and opaque. BinGo solves
 
 - Node.js 18+
 - Expo CLI
-- Python 3.10+
-- PostgreSQL with PostGIS extension
+- A Supabase project
 
-### Installation
+### Customer App Setup
 
-**Customer App:**
 ```bash
 cd bingo-customer
 npm install
+```
+
+Create a `.env` file:
+
+```env
+EXPO_PUBLIC_SUPABASE_URL=your-project-url
+EXPO_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+```
+
+Apply the database schema from [`bingo-customer/supabase/schema.sql`](bingo-customer/supabase/schema.sql) in the Supabase SQL Editor, then run:
+
+```bash
 npx expo start
 ```
 
-**Pilot App:**
+### Pilot App Setup
+
 ```bash
 cd bingo-pilot
 npm install

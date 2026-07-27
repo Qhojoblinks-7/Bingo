@@ -1,28 +1,30 @@
-import { createContext, useContext, useReducer, useEffect } from 'react';
+import { createContext, useContext, useReducer, useEffect, useCallback } from 'react';
+import { supabase } from '../lib/supabase';
+import { authClient } from '../services/api';
+import { STORAGE_KEYS } from '../constants/Config';
 
-// Initial state
 const initialState = {
   id: null,
-  name: 'Immanuel',
-  email: 'immanuel@bingo.com.gh',
+  name: '',
+  email: '',
   phone: '',
   avatar: null,
-  lastPickup: '2 days ago',
+  lastPickup: null,
+  totalPickups: 0,
   isLoading: false,
   error: null,
 };
 
-// Action types
 const ActionTypes = {
   SET_USER: 'SET_USER',
   SET_LOADING: 'SET_LOADING',
   SET_ERROR: 'SET_ERROR',
   UPDATE_PROFILE: 'UPDATE_PROFILE',
   SET_LAST_PICKUP: 'SET_LAST_PICKUP',
+  SET_TOTAL_PICKUPS: 'SET_TOTAL_PICKUPS',
   RESET: 'RESET',
 };
 
-// Reducer
 function userReducer(state, action) {
   switch (action.type) {
     case ActionTypes.SET_USER:
@@ -35,6 +37,8 @@ function userReducer(state, action) {
       return { ...state, ...action.payload };
     case ActionTypes.SET_LAST_PICKUP:
       return { ...state, lastPickup: action.payload };
+    case ActionTypes.SET_TOTAL_PICKUPS:
+      return { ...state, totalPickups: action.payload };
     case ActionTypes.RESET:
       return initialState;
     default:
@@ -42,14 +46,11 @@ function userReducer(state, action) {
   }
 }
 
-// Create context
 const UserContext = createContext(null);
 
-// Provider component
 export function UserProvider({ children }) {
   const [state, dispatch] = useReducer(userReducer, initialState);
 
-  // Actions
   const setUser = (userData) => {
     dispatch({ type: ActionTypes.SET_USER, payload: userData });
   };
@@ -62,35 +63,124 @@ export function UserProvider({ children }) {
     dispatch({ type: ActionTypes.SET_ERROR, payload: error });
   };
 
-  const updateProfile = (profileData) => {
-    dispatch({ type: ActionTypes.UPDATE_PROFILE, payload: profileData });
+  const updateProfile = async (profileData) => {
+    dispatch({ type: ActionTypes.SET_LOADING, payload: true });
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('No authenticated user');
+
+      const { data, error } = await supabase
+        .from('customers')
+        .update(profileData)
+        .eq('id', user.id)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      dispatch({ type: ActionTypes.SET_USER, payload: { ...data, id: data.id } });
+      dispatch({ type: ActionTypes.SET_LOADING, payload: false });
+      return { success: true };
+    } catch (error) {
+      dispatch({ type: ActionTypes.SET_ERROR, payload: error.message });
+      return { success: false, error: error.message };
+    }
   };
 
-  const setLastPickup = (lastPickup) => {
-    dispatch({ type: ActionTypes.SET_LAST_PICKUP, payload: lastPickup });
+  const login = async (email, password) => {
+    dispatch({ type: ActionTypes.SET_LOADING, payload: true });
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+
+      dispatch({ type: ActionTypes.SET_USER, payload: {
+        id: data.user.id,
+        email: data.user.email,
+        name: data.user.user_metadata?.full_name || data.user.email,
+        phone: data.user.phone || '',
+      }});
+      dispatch({ type: ActionTypes.SET_LOADING, payload: false });
+      return { success: true };
+    } catch (error) {
+      dispatch({ type: ActionTypes.SET_ERROR, payload: error.message });
+      return { success: false, error: error.message };
+    }
   };
 
-  const reset = () => {
-    dispatch({ type: ActionTypes.RESET });
+  const register = async (email, password, fullName) => {
+    dispatch({ type: ActionTypes.SET_LOADING, payload: true });
+    try {
+      const { data, error } = await supabase.auth.signUp({ email, password, options: { data: { full_name: fullName }}});
+      if (error) throw error;
+
+      dispatch({ type: ActionTypes.SET_LOADING, payload: false });
+      return { success: true, user: data.user };
+    } catch (error) {
+      dispatch({ type: ActionTypes.SET_ERROR, payload: error.message });
+      return { success: false, error: error.message };
+    }
   };
 
-  // Mock API call - replace with actual API
+  const logout = useCallback(async () => {
+    try {
+      await supabase.auth.signOut();
+    } catch (error) {
+      console.error('Logout error:', error);
+    } finally {
+      dispatch({ type: ActionTypes.LOGOUT });
+    }
+  }, []);
+
   const fetchUser = async () => {
     setLoading(true);
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 500));
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setError('No authenticated user');
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('customers')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+
+      if (error) throw error;
+
       setUser({
-        id: '1',
-        name: 'Immanuel',
-        email: 'immanuel@bingo.com.gh',
-        phone: '+233123456789',
-        lastPickup: '2 days ago',
+        id: data.id,
+        name: data.full_name || data.email,
+        email: data.email,
+        phone: data.phone || '',
+        avatar: data.avatar_url || null,
+        lastPickup: data.last_pickup_at ? new Date(data.last_pickup_at).toLocaleDateString() : null,
+        totalPickups: data.total_pickups || 0,
       });
     } catch (error) {
       setError(error.message);
     }
   };
+
+  useEffect(() => {
+    fetchUser();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        fetchUser();
+      } else {
+        reset();
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  const reset = useCallback(() => {
+    dispatch({ type: ActionTypes.RESET });
+  }, []);
 
   const value = {
     ...state,
@@ -98,7 +188,9 @@ export function UserProvider({ children }) {
     setLoading,
     setError,
     updateProfile,
-    setLastPickup,
+    login,
+    register,
+    logout,
     fetchUser,
     reset,
   };
@@ -110,7 +202,6 @@ export function UserProvider({ children }) {
   );
 }
 
-// Hook to use the store
 export function useUserStore() {
   const context = useContext(UserContext);
   if (!context) {

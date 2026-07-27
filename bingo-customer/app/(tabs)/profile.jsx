@@ -17,7 +17,6 @@ export default function Profile() {
   const { 
     notificationsEnabled, 
     setNotificationsEnabled, 
-    themeMode, 
     cycleThemeMode, 
     getThemeModeLabel,
     logout: storeLogout,
@@ -49,7 +48,7 @@ export default function Profile() {
     try {
       await sendTestNotification();
       Alert.alert('Success', 'Test notification sent!');
-    } catch (error) {
+    } catch (_error) {
       Alert.alert('Error', 'Failed to send notification');
     }
   };

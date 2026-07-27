@@ -9,7 +9,7 @@ export default function Security() {
   const router = useRouter();
   const { isDark } = useAppTheme();
   
-  const colors = isDark ? {
+  const colors = useMemo(() => isDark ? {
     background: '#121212',
     card: '#1E1E1E',
     text: '#FFFFFF',
@@ -29,7 +29,7 @@ export default function Security() {
     border: '#E5E7EB',
     inputBg: '#F3F4F6',
     error: '#EF4444',
-  };
+  }, [isDark]);
 
   const [biometricEnabled, setBiometricEnabled] = useState(false);
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(true);

@@ -1,34 +1,14 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
 import { BinGoHeader } from '@/components/BinGoHeader';
-import { BinGoButton } from '@/components/BinGoButton';
 import { useAppTheme } from '@/hooks/useThemeContext';
-
-// Mock data for saved locations
-const INITIAL_LOCATIONS = [
-  {
-    id: '1',
-    label: 'Home',
-    address: 'GA-123-4567, Accra',
-    gpsCode: 'GA-123-4567',
-    isDefault: true,
-  },
-  {
-    id: '2',
-    label: 'Office',
-    address: 'Plot 45, Independence Avenue, Accra',
-    gpsCode: 'GA-789-0123',
-    isDefault: false,
-  },
-];
+import { supabase } from '@/lib/supabase';
 
 export default function SavedLocations() {
-  const router = useRouter();
   const { isDark } = useAppTheme();
   
-  const colors = isDark ? {
+  const colors = useMemo(() => isDark ? {
     background: '#121212',
     card: '#1E1E1E',
     text: '#FFFFFF',
@@ -46,18 +26,61 @@ export default function SavedLocations() {
     white: '#FFFFFF',
     border: '#E5E7EB',
     inputBg: '#F3F4F6',
+  }, [isDark]);
+
+  const [locations, setLocations] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchLocations();
+  }, []);
+
+  const fetchLocations = async () => {
+    setLoading(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from('customer_locations')
+        .select('*')
+        .eq('customer_id', user.id)
+        .order('is_default', { ascending: false });
+
+      if (error) throw error;
+      setLocations(data || []);
+    } catch (error) {
+      console.error('Error fetching locations:', error);
+      Alert.alert('Error', 'Failed to load saved locations');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const [locations, setLocations] = useState(INITIAL_LOCATIONS);
+  const handleSetDefault = async (id) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
 
-  const handleSetDefault = (id) => {
-    setLocations(locations.map(loc => ({
-      ...loc,
-      isDefault: loc.id === id,
-    })));
+      await supabase
+        .from('customer_locations')
+        .update({ is_default: false })
+        .eq('customer_id', user.id);
+
+      const { error } = await supabase
+        .from('customer_locations')
+        .update({ is_default: true })
+        .eq('id', id)
+        .eq('customer_id', user.id);
+
+      if (error) throw error;
+      fetchLocations();
+    } catch (_error) {
+      Alert.alert('Error', 'Failed to update default location');
+    }
   };
 
-  const handleDelete = (id, label) => {
+  const handleDelete = async (id, label) => {
     Alert.alert(
       'Delete Location',
       `Are you sure you want to delete "${label}"?`,
@@ -66,8 +89,18 @@ export default function SavedLocations() {
         {
           text: 'Delete',
           style: 'destructive',
-          onPress: () => {
-            setLocations(locations.filter(loc => loc.id !== id));
+          onPress: async () => {
+            try {
+              const { error } = await supabase
+                .from('customer_locations')
+                .delete()
+                .eq('id', id);
+
+              if (error) throw error;
+              fetchLocations();
+            } catch (_error) {
+              Alert.alert('Error', 'Failed to delete location');
+            }
           },
         },
       ]
@@ -242,20 +275,24 @@ export default function SavedLocations() {
         <View style={styles.locationsSection}>
           <Text style={styles.sectionLabel}>My Locations</Text>
           
-          {locations.map((location) => (
+          {loading ? (
+            <Text style={styles.helpText}>Loading locations...</Text>
+          ) : locations.length === 0 ? (
+            <Text style={styles.helpText}>No saved locations yet. Add your first one below.</Text>
+          ) : (
+            locations.map((location) => (
             <Pressable 
               key={location.id} 
               style={styles.locationCard}
-              onPress={() => handleSetDefault(location.id)}
             >
               <View style={styles.locationHeader}>
                 <View style={styles.labelRow}>
                   <View style={styles.labelBadge}>
                     <Text style={styles.labelText}>
-                      {location.label}
+                      {location.label || 'Location'}
                     </Text>
                   </View>
-                  {location.isDefault && (
+                  {location.is_default && (
                     <View style={styles.defaultBadge}>
                       <Ionicons name="star" size={12} color={colors.white} />
                       <Text style={styles.defaultText}>Default</Text>
@@ -270,14 +307,14 @@ export default function SavedLocations() {
                 </Pressable>
               </View>
 
-              <Text style={styles.addressText}>{location.address}</Text>
+              <Text style={styles.addressText}>{location.address || 'No address provided'}</Text>
               
               <View style={styles.gpsRow}>
                 <Ionicons name="location-outline" size={14} color={colors.muted} />
-                <Text style={styles.gpsText}>{location.gpsCode}</Text>
+                <Text style={styles.gpsText}>{location.gps_code || location.address}</Text>
               </View>
 
-              {!location.isDefault && (
+              {!location.is_default && (
                 <Pressable 
                   style={styles.setDefaultBtn}
                   onPress={() => handleSetDefault(location.id)}
@@ -286,7 +323,8 @@ export default function SavedLocations() {
                 </Pressable>
               )}
             </Pressable>
-          ))}
+          ))
+          )}
         </View>
 
         {/* Add New Location */}

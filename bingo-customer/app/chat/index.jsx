@@ -1,30 +1,9 @@
-import React, { useState, useRef, useMemo } from 'react';
-import { View, Text, StyleSheet, FlatList, Pressable, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
+import React, { useState, useRef, useMemo, useEffect } from 'react';
+import { View, Text, StyleSheet, FlatList, Pressable, TextInput, KeyboardAvoidingView, Platform, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { BinGoHeader } from '@/components/BinGoHeader';
 import { useAppTheme } from '@/hooks/useThemeContext';
-
-// Mock chat messages
-const INITIAL_MESSAGES = [
-  {
-    id: '1',
-    text: 'Hello! Welcome to BinGo Support. How can I help you today?',
-    sender: 'agent',
-    timestamp: new Date(Date.now() - 3600000),
-  },
-  {
-    id: '2',
-    text: 'Hi, I have a question about my pickup schedule.',
-    sender: 'user',
-    timestamp: new Date(Date.now() - 3500000),
-  },
-  {
-    id: '3',
-    text: 'Of course! I\'d be happy to help. Could you please provide your pickup ID or the address?',
-    sender: 'agent',
-    timestamp: new Date(Date.now() - 3400000),
-  },
-];
+import { supabase } from '@/lib/supabase';
 
 // Quick reply options
 const QUICK_REPLIES = [
@@ -37,7 +16,7 @@ const QUICK_REPLIES = [
 export default function Chat() {
   const { isDark } = useAppTheme();
   
-  const colors = isDark ? {
+  const colors = useMemo(() => isDark ? {
     background: '#121212',
     card: '#1E1E1E',
     text: '#FFFFFF',
@@ -55,76 +34,158 @@ export default function Chat() {
     white: '#FFFFFF',
     border: '#E5E7EB',
     inputBg: '#F3F4F6',
-  };
+  }, [isDark]);
 
-  const [messages, setMessages] = useState(INITIAL_MESSAGES);
+  const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState('');
-  const [isTyping, setIsTyping] = useState(false);
+  const [isSending, setIsSending] = useState(false);
   const flatListRef = useRef(null);
 
-  const formatTime = (date) => {
-    return date.toLocaleTimeString('en-US', { 
-      hour: '2-digit', 
-      minute: '2-digit' 
-    });
+  const formatTime = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
   };
 
-  const handleSend = () => {
+   const fetchMessages = async () => {
+    setIsSending(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setMessages([]);
+        return;
+      }
+
+      const { data: tickets, error } = await supabase
+        .from('support_tickets')
+        .select('id, subject, message, status, created_at')
+        .eq('customer_id', user.id)
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+
+      const mappedMessages = [];
+      
+      if (tickets && tickets.length > 0) {
+        tickets.forEach((ticket) => {
+          mappedMessages.push({
+            id: `ticket-${ticket.id}-user`,
+            text: ticket.subject || ticket.message,
+            sender: 'user',
+            timestamp: new Date(ticket.created_at),
+            status: ticket.status,
+          });
+          
+          if (ticket.status === 'resolved' || ticket.status === 'closed') {
+            mappedMessages.push({
+              id: `ticket-${ticket.id}-agent`,
+              text: `Thank you for contacting BinGo Support. Your ticket #${ticket.id.slice(0, 8)} has been ${ticket.status}. Is there anything else we can help you with?`,
+              sender: 'agent',
+              timestamp: new Date(ticket.created_at),
+            });
+          }
+        });
+      }
+
+      setMessages(mappedMessages);
+    } catch (error) {
+      console.error('Error fetching messages:', error);
+      setMessages([]);
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchMessages();
+  }, []);
+
+  const handleSend = async () => {
     if (!inputText.trim()) return;
 
-    const newMessage = {
-      id: Date.now().toString(),
-      text: inputText.trim(),
-      sender: 'user',
-      timestamp: new Date(),
-    };
+    setIsSending(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        Alert.alert('Error', 'You must be logged in to send a message');
+        return;
+      }
 
-    setMessages([...messages, newMessage]);
-    setInputText('');
-    
-    // Simulate agent typing
-    setIsTyping(true);
-    setTimeout(() => {
-      setIsTyping(false);
-      const agentResponse = {
-        id: (Date.now() + 1).toString(),
-        text: 'Thank you for your message. A support agent will respond shortly. For urgent matters, you can also call us at +233 30 000 0000.',
-        sender: 'agent',
-        timestamp: new Date(),
+      const { data, error } = await supabase
+        .from('support_tickets')
+        .insert({
+          customer_id: user.id,
+          subject: inputText.trim().slice(0, 100),
+          message: inputText.trim(),
+          status: 'open',
+          channel: 'chat',
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      const newMessage = {
+        id: `ticket-${data.id}-user`,
+        text: inputText.trim(),
+        sender: 'user',
+        timestamp: new Date(data.created_at),
+        status: data.status,
       };
-      setMessages(prev => [...prev, agentResponse]);
-    }, 2000);
+
+      setMessages(prev => [...prev, newMessage]);
+      setInputText('');
+    } catch (error) {
+      Alert.alert('Error', 'Failed to send message. Please try again.');
+      console.error('Error sending message:', error);
+    } finally {
+      setIsSending(false);
+    }
   };
 
-  const handleQuickReply = (reply) => {
-    const newMessage = {
-      id: Date.now().toString(),
-      text: reply,
-      sender: 'user',
-      timestamp: new Date(),
-    };
+  const handleQuickReply = async (reply) => {
+    await handleSendWithText(reply);
+  };
 
-    setMessages([...messages, newMessage]);
-    
-    // Simulate agent response
-    setIsTyping(true);
-    setTimeout(() => {
-      setIsTyping(false);
-      const responses = {
-        'Pickup Issue': 'I understand you have a pickup issue. Could you please describe what\'s happening? Is the bin not being collected on time, or is there a problem with the pickup location?',
-        'Payment Help': 'I\'d be happy to help with your payment. Are you having trouble making a payment, or is there an issue with your wallet balance?',
-        'Account Support': 'Sure, I can help with your account. What specific aspect would you like assistance with?',
-        'Other': 'Thank you for reaching out. Please describe your issue in detail and I\'ll do my best to help.',
+  const handleSendWithText = async (text) => {
+    if (!text.trim()) return;
+
+    setIsSending(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        Alert.alert('Error', 'You must be logged in to send a message');
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('support_tickets')
+        .insert({
+          customer_id: user.id,
+          subject: text.trim().slice(0, 100),
+          message: text.trim(),
+          status: 'open',
+          channel: 'chat',
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      const newMessage = {
+        id: `ticket-${data.id}-user`,
+        text: text.trim(),
+        sender: 'user',
+        timestamp: new Date(data.created_at),
+        status: data.status,
       };
-      
-      const agentResponse = {
-        id: (Date.now() + 1).toString(),
-        text: responses[reply] || 'Thank you for your message. How can I assist you further?',
-        sender: 'agent',
-        timestamp: new Date(),
-      };
-      setMessages(prev => [...prev, agentResponse]);
-    }, 1500);
+
+      setMessages(prev => [...prev, newMessage]);
+    } catch (error) {
+      Alert.alert('Error', 'Failed to send message. Please try again.');
+      console.error('Error sending message:', error);
+    } finally {
+      setIsSending(false);
+    }
   };
 
   const renderMessage = ({ item }) => {
@@ -322,10 +383,24 @@ export default function Chat() {
       justifyContent: 'center',
       alignItems: 'center',
     },
-    sendBtnDisabled: {
-      backgroundColor: colors.border,
-    },
-  }), [colors, isDark]);
+     sendBtnDisabled: {
+       backgroundColor: colors.border,
+     },
+     emptyState: {
+       alignItems: 'center',
+       justifyContent: 'center',
+       paddingTop: 60,
+     },
+     emptyText: {
+       marginTop: 12,
+       fontSize: 14,
+       fontWeight: '600',
+     },
+     emptySubtext: {
+       marginTop: 4,
+       fontSize: 13,
+     },
+   }), [colors, isDark]);
 
   return (
     <View style={styles.container}>
@@ -352,28 +427,21 @@ export default function Chat() {
             <View style={styles.welcomeBanner}>
               <Ionicons name="shield-checkmark" size={20} color={colors.primary} />
               <Text style={styles.welcomeText}>
-                Secure connection • Typically responds in 2-5 minutes
+                Secure connection • Support team will respond shortly
               </Text>
             </View>
           }
-          ListFooterComponent={
-            isTyping ? (
-              <View style={styles.typingContainer}>
-                <View style={styles.agentAvatar}>
-                  <Ionicons name="headset" size={16} color={colors.white} />
-                </View>
-                <View style={styles.typingBubble}>
-                  <View style={styles.typingDot} />
-                  <View style={styles.typingDot} />
-                  <View style={styles.typingDot} />
-                </View>
-              </View>
-            ) : null
+          ListEmptyComponent={
+            <View style={styles.emptyState}>
+              <Ionicons name="chatbubble-ellipses-outline" size={48} color={colors.muted} />
+              <Text style={[styles.emptyText, { color: colors.muted }]}>No messages yet</Text>
+              <Text style={[styles.emptySubtext, { color: colors.muted }]}>Start a conversation with our support team</Text>
+            </View>
           }
         />
 
         {/* Quick Replies */}
-        {messages.length <= 3 && (
+        {messages.length === 0 && (
           <View style={styles.quickReplies}>
             {QUICK_REPLIES.map((reply) => (
               <Pressable
@@ -406,16 +474,20 @@ export default function Chat() {
           <Pressable 
             style={[
               styles.sendBtn,
-              !inputText.trim() && styles.sendBtnDisabled
+              (!inputText.trim() || isSending) && styles.sendBtnDisabled
             ]}
             onPress={handleSend}
-            disabled={!inputText.trim()}
+            disabled={!inputText.trim() || isSending}
           >
-            <Ionicons 
-              name="send" 
-              size={20} 
-              color={inputText.trim() ? colors.white : colors.muted} 
-            />
+            {isSending ? (
+              <View style={styles.typingDot} />
+            ) : (
+              <Ionicons 
+                name="send" 
+                size={20} 
+                color={inputText.trim() ? colors.white : colors.muted} 
+              />
+            )}
           </Pressable>
         </View>
       </KeyboardAvoidingView>

@@ -1,4 +1,6 @@
-import { createContext, useContext, useReducer } from 'react';
+import { createContext, useContext, useReducer, useEffect } from 'react';
+import { supabase } from '../lib/supabase';
+import { authClient } from '../services/api';
 
 // Bin size options
 export const BinSizes = {
@@ -116,7 +118,9 @@ export function RequestProvider({ children }) {
     setError(null);
 
     try {
-      // Check wallet balance if using wallet
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('No authenticated user');
+
       if (state.paymentMethod === PaymentMethods.WALLET) {
         const balance = parseFloat(walletBalance || '0');
         if (balance < totalPrice) {
@@ -124,19 +128,31 @@ export function RequestProvider({ children }) {
         }
       }
 
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      const { data, error } = await supabase
+        .from('requests')
+        .insert({
+          customer_id: user.id,
+          address: state.address,
+          bin_size: selectedBin.label,
+          notes: state.notes,
+          payment_method: state.paymentMethod,
+          price: totalPrice,
+          status: 'pending',
+        })
+        .select()
+        .single();
 
-      // Create request details
+      if (error) throw error;
+
       const requestDetails = {
-        id: Date.now().toString(),
-        address: state.address,
+        id: data.id,
+        address: data.address,
         binSize: selectedBin,
-        notes: state.notes,
-        paymentMethod: state.paymentMethod,
+        notes: data.notes,
+        paymentMethod: data.payment_method,
         price: totalPrice,
-        status: 'pending',
-        createdAt: new Date().toISOString(),
+        status: data.status,
+        createdAt: data.created_at,
       };
 
       setRequestDetails(requestDetails);

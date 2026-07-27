@@ -1,4 +1,5 @@
 import { createContext, useContext, useReducer, useCallback } from 'react';
+import { supabase } from '../lib/supabase';
 
 // Initial state
 const initialState = {
@@ -98,11 +99,19 @@ export function ProfileProvider({ children }) {
   const updateUser = useCallback(async (updates) => {
     dispatch({ type: ActionTypes.SET_UPDATING, payload: true });
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // Update local state
-      dispatch({ type: ActionTypes.SET_USER, payload: updates });
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('No authenticated user');
+
+      const { data, error } = await supabase
+        .from('customers')
+        .update(updates)
+        .eq('id', user.id)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      dispatch({ type: ActionTypes.SET_USER, payload: { ...data, id: data.id } });
       dispatch({ type: ActionTypes.SET_UPDATING, payload: false });
       return { success: true };
     } catch (error) {
@@ -189,27 +198,37 @@ export function ProfileProvider({ children }) {
     dispatch({ type: ActionTypes.RESET });
   }, []);
 
-  // Fetch profile (simulated)
+  // Fetch profile
   const fetchProfile = useCallback(async () => {
     dispatch({ type: ActionTypes.SET_LOADING, payload: true });
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // Mock user data
-      const mockUser = {
-        id: '1',
-        name: 'Immanuel Appiah',
-        email: 'immanuel@bingo.com.gh',
-        phone: '+233 55 123 4567',
-        avatar: null,
-        memberSince: '2024',
-        totalPickups: 15,
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        dispatch({ type: ActionTypes.SET_LOADING, payload: false });
+        return { success: false };
+      }
+
+      const { data, error } = await supabase
+        .from('customers')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+
+      if (error) throw error;
+
+      const userData = {
+        id: data.id,
+        name: data.full_name || data.email,
+        email: data.email,
+        phone: data.phone || '',
+        avatar: data.avatar_url || null,
+        memberSince: data.created_at ? new Date(data.created_at).toLocaleDateString() : '',
+        totalPickups: data.total_pickups || 0,
       };
-      
-      dispatch({ type: ActionTypes.SET_USER, payload: mockUser });
+
+      dispatch({ type: ActionTypes.SET_USER, payload: userData });
       dispatch({ type: ActionTypes.SET_LOADING, payload: false });
-      return { success: true, user: mockUser };
+      return { success: true, user: userData };
     } catch (error) {
       dispatch({ type: ActionTypes.SET_ERROR, payload: error.message });
       return { success: false, error: error.message };

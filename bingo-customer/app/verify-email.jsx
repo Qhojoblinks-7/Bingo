@@ -1,11 +1,11 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, Alert } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, Alert, TextInput, Image } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
 import { BinGoHeader } from '../components/BinGoHeader';
 import { BinGoButton } from '../components/BinGoButton';
 import { COLORS } from '../constants/Colors';
 import { useAppTheme } from '../hooks/useThemeContext';
+import { supabase } from '../lib/supabase';
 
 export default function VerifyEmail() {
   const router = useRouter();
@@ -17,7 +17,6 @@ export default function VerifyEmail() {
   const [isLoading, setIsLoading] = useState(false);
   const [resendTimer, setResendTimer] = useState(60);
   const [canResend, setCanResend] = useState(false);
-  
   const inputRefs = useRef([]);
 
   // Countdown timer for resend
@@ -37,12 +36,10 @@ export default function VerifyEmail() {
     newCode[index] = value;
     setCode(newCode);
 
-    // Auto-focus next input
     if (value && index < 5) {
       inputRefs.current[index + 1]?.focus();
     }
 
-    // Auto-submit when complete
     const fullCode = newCode.join('');
     if (fullCode.length === 6) {
       handleVerify(fullCode);
@@ -50,14 +47,13 @@ export default function VerifyEmail() {
   };
 
   const handleKeyPress = (e, index) => {
-    // Handle backspace to go to previous input
     if (e.nativeEvent.key === 'Backspace' && !code[index] && index > 0) {
       inputRefs.current[index - 1]?.focus();
     }
   };
 
-  const handleVerify = async (verificationCode = code.join('')) => {
-    if (verificationCode.length !== 6) {
+  const handleVerify = async (verificationCode) => {
+    if (!verificationCode || verificationCode.length !== 6) {
       Alert.alert('Error', 'Please enter the complete 6-digit code');
       return;
     }
@@ -65,10 +61,14 @@ export default function VerifyEmail() {
     setIsLoading(true);
     
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      // In production, verify the code with Django API
+      const { error } = await supabase.auth.verifyOtp({
+        type: 'signup',
+        token: verificationCode,
+        email: email,
+      });
+
+      if (error) throw error;
+
       Alert.alert(
         'Email Verified!',
         'Your email has been successfully verified.',
@@ -79,7 +79,7 @@ export default function VerifyEmail() {
           },
         ]
       );
-    } catch (error) {
+    } catch (_error) {
       Alert.alert('Error', 'Invalid verification code. Please try again.');
     } finally {
       setIsLoading(false);
@@ -87,17 +87,17 @@ export default function VerifyEmail() {
   };
 
   const handleResend = async () => {
-    if (!canResend) return;
+    if (!canResend || !email) return;
     
     setResendTimer(60);
     setCanResend(false);
     
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      Alert.alert('Code Resent', `A new verification code has been sent to ${email || 'your email'}.`);
-    } catch (error) {
+      const { error } = await supabase.auth.resend({ type: 'signup', email: email });
+      if (error) throw error;
+
+      Alert.alert('Code Resent', `A new verification code has been sent to ${email}.`);
+    } catch (_error) {
       Alert.alert('Error', 'Failed to resend code. Please try again.');
     }
   };
@@ -118,11 +118,13 @@ export default function VerifyEmail() {
           contentContainerStyle={styles.content}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Icon */}
-          <View style={styles.iconContainer}>
-            <View style={[styles.iconCircle, { backgroundColor: COLORS.primary + '15' }]}>
-              <Ionicons name="mail-unread" size={40} color={COLORS.primary} />
-            </View>
+          {/* Logo */}
+          <View style={styles.logoContainer}>
+            <Image
+              source={require('../assets/images/logo2.png')}
+              style={styles.logoImage}
+              resizeMode="contain"
+            />
           </View>
 
           {/* Title */}
@@ -132,7 +134,7 @@ export default function VerifyEmail() {
           
           {/* Subtitle */}
           <Text style={[styles.subtitle, { color: COLORS.muted }]}>
-            We've sent a 6-digit verification code to{'\n'}
+            We&apos;ve sent a 6-digit verification code to{'\n'}
             <Text style={{ color: COLORS.primary, fontWeight: '600' }}>
               {email || 'your email'}
             </Text>
@@ -141,8 +143,9 @@ export default function VerifyEmail() {
           {/* OTP Inputs */}
           <View style={styles.otpContainer}>
             {code.map((digit, index) => (
-              <View 
-                key={index} 
+              <TextInput
+                key={index}
+                ref={(ref) => { inputRefs.current[index] = ref; }}
                 style={[
                   styles.otpInput,
                   { 
@@ -150,19 +153,14 @@ export default function VerifyEmail() {
                     borderColor: digit ? COLORS.primary : theme.border 
                   }
                 ]}
-              >
-                <Text style={[styles.otpText, { color: theme.text }]}>
-                  {digit}
-                </Text>
-              </View>
-            ))}
-          </View>
-          
-          {/* Hidden inputs for keyboard */}
-          <View style={styles.hiddenInputs}>
-            {code.map((_, index) => (
-              <React.Fragment key={index}>
-              </React.Fragment>
+                value={digit}
+                onChangeText={(text) => handleCodeChange(text, index)}
+                onKeyPress={(e) => handleKeyPress(e, index)}
+                maxLength={1}
+                keyboardType="number-pad"
+                textContentType="oneTimeCode"
+                selectTextOnFocus
+              />
             ))}
           </View>
 
@@ -180,7 +178,7 @@ export default function VerifyEmail() {
             {canResend ? (
               <View style={styles.resendRow}>
                 <Text style={[styles.resendText, { color: COLORS.muted }]}>
-                  Didn't receive the code?{' '}
+                  Didn&apos;t receive the code?{' '}
                 </Text>
                 <Text 
                   style={[styles.resendLink, { color: COLORS.primary }]}

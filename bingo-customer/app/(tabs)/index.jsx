@@ -16,18 +16,21 @@ export default function Home() {
   const [refreshing, setRefreshing] = React.useState(false);
 
   // Use stores
-  const { name, lastPickup } = useUserStore();
-  const { balance, hasSufficientBalance, minimumPickupPrice } =
+  const { name, lastPickup, fetchUser } = useUserStore();
+  const { balance, hasSufficientBalance, minimumPickupPrice, fetchBalance } =
     useWalletStore();
-  const { currentRequest, hasActiveRequest } = useActiveRequestStore();
+  const { currentRequest, hasActiveRequest, fetchActiveRequest } = useActiveRequestStore();
 
   // Handle pull-to-refresh
   const onRefresh = React.useCallback(async () => {
     setRefreshing(true);
-    // Simulate refresh - in production, this would fetch fresh data
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await Promise.all([
+      fetchUser(),
+      fetchBalance(),
+      fetchActiveRequest(),
+    ]);
     setRefreshing(false);
-  }, []);
+  }, [fetchUser, fetchBalance, fetchActiveRequest]);
 
   // Get greeting based on time of day
   const getGreeting = () => {

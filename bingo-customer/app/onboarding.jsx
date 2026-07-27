@@ -6,7 +6,7 @@ import {
   FlatList,
   Dimensions,
   TouchableOpacity,
-  useColorScheme,
+  Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
@@ -43,7 +43,6 @@ export default function Onboarding() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const router = useRouter();
   const flatListRef = useRef(null);
-  const colorScheme = useColorScheme();
   const { isDark } = useAppTheme();
   
   const theme = isDark ? COLORS.dark : COLORS.light;
@@ -89,6 +88,15 @@ export default function Onboarding() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
+      {/* Logo */}
+      <View style={styles.logoContainer}>
+        <Image
+          source={require('../assets/images/logo2.png')}
+          style={styles.logoImage}
+          resizeMode="contain"
+        />
+      </View>
+
       {/* Skip Button */}
       <TouchableOpacity style={styles.skipButton} onPress={handleSkip}>
         <Text style={[styles.skipButtonText, { color: COLORS.muted }]}>Skip</Text>
@@ -147,6 +155,16 @@ export default function Onboarding() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  logoContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 60,
+    marginBottom: 24,
+  },
+  logoImage: {
+    width: 180,
+    height: 180,
   },
   skipButton: {
     position: 'absolute',

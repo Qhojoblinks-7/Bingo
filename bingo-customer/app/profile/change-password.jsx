@@ -6,12 +6,13 @@ import { BinGoHeader } from '@/components/BinGoHeader';
 import { BinGoInput } from '@/components/BinGoInput';
 import { BinGoButton } from '@/components/BinGoButton';
 import { useAppTheme } from '@/hooks/useThemeContext';
+import { supabase } from '@/lib/supabase';
 
 export default function ChangePassword() {
   const router = useRouter();
   const { isDark } = useAppTheme();
   
-  const colors = isDark ? {
+  const colors = useMemo(() => isDark ? {
     background: '#121212',
     card: '#1E1E1E',
     text: '#FFFFFF',
@@ -29,22 +30,22 @@ export default function ChangePassword() {
     white: '#FFFFFF',
     border: '#E5E7EB',
     inputBg: '#F3F4F6',
-  };
+  }, [isDark]);
 
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const [showCurrent, setShowCurrent] = useState(false);
   const [showNew, setShowNew] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
 
   const validatePassword = (password) => {
     const regex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
     return regex.test(password);
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!currentPassword) {
       Alert.alert('Error', 'Please enter your current password');
       return;
@@ -75,8 +76,10 @@ export default function ChangePassword() {
 
     setIsLoading(true);
     
-    setTimeout(() => {
-      setIsLoading(false);
+    try {
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) throw error;
+
       Alert.alert(
         'Success',
         'Your password has been changed successfully',
@@ -87,7 +90,11 @@ export default function ChangePassword() {
           }
         ]
       );
-    }, 1500);
+    } catch (error) {
+      Alert.alert('Error', error.message || 'Failed to change password');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const styles = useMemo(() => StyleSheet.create({

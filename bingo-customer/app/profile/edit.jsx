@@ -13,12 +13,14 @@ import { BinGoHeader } from "@/components/BinGoHeader";
 import { BinGoInput } from "@/components/BinGoInput";
 import { BinGoButton } from "@/components/BinGoButton";
 import { useAppTheme } from "@/hooks/useThemeContext";
+import { useUserStore } from "@/stores";
 
 export default function EditProfile() {
   const router = useRouter();
   const { isDark } = useAppTheme();
+  const { user, updateProfile } = useUserStore();
 
-  const colors = isDark
+  const colors = useMemo(() => isDark
     ? {
         background: "#121212",
         card: "#1E1E1E",
@@ -36,25 +38,47 @@ export default function EditProfile() {
         primary: "#10B981",
         white: "#FFFFFF",
         border: "#E5E7EB",
-      };
+      }, [isDark]);
 
   const [formData, setFormData] = useState({
-    fullName: "Immanuel Appiah",
-    phone: "+233 50 123 4567",
-    email: "immanuel@bingo.com.gh",
+    fullName: "",
+    phone: "",
+    email: "",
   });
 
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  const handleSave = () => {
+  React.useEffect(() => {
+    if (user) {
+      setFormData({
+        fullName: user.name || "",
+        phone: user.phone || "",
+        email: user.email || "",
+      });
+    }
+  }, [user]);
+
+  const handleSave = async () => {
     setIsSaving(true);
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      const result = await updateProfile({
+        name: formData.fullName,
+        phone: formData.phone,
+        email: formData.email,
+      });
+      
+      if (result.success) {
+        Alert.alert("Success", "Your profile has been updated.");
+        setIsEditing(false);
+      } else {
+        Alert.alert("Error", result.error || "Failed to update profile");
+      }
+    } catch (_error) {
+      Alert.alert("Error", "Failed to update profile");
+    } finally {
       setIsSaving(false);
-      setIsEditing(false);
-      Alert.alert("Success", "Your profile has been updated.");
-    }, 1000);
+    }
   };
 
   const handleCancel = () => {

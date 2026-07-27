@@ -1,6 +1,8 @@
-import { createContext, useContext, useReducer } from 'react';
+import { createContext, useContext, useReducer, useEffect, useCallback, useMemo } from 'react';
+import { supabase } from '../lib/supabase';
+import { authClient } from '../services/api';
 
-// Activity status types
+// Activity status types - mapped to UI states
 export const ActivityStatus = {
   AWAITING: 'awaiting',
   IN_TRANSIT: 'in_transit',
@@ -12,6 +14,24 @@ export const ActivityStatus = {
 export const ActivityType = {
   PICKUP: 'pickup',
   TOPUP: 'topup',
+};
+
+// Map raw Supabase request statuses to UI statuses
+const mapRequestStatus = (rawStatus) => {
+  switch (rawStatus) {
+    case 'pending':
+    case 'accepted':
+      return ActivityStatus.AWAITING;
+    case 'in_transit':
+    case 'arriving':
+      return ActivityStatus.IN_TRANSIT;
+    case 'completed':
+      return ActivityStatus.COMPLETED;
+    case 'cancelled':
+      return ActivityStatus.CANCELLED;
+    default:
+      return rawStatus;
+  }
 };
 
 // Initial state
@@ -96,104 +116,210 @@ export function ActivityProvider({ children }) {
   const [state, dispatch] = useReducer(activityReducer, initialState);
 
   // Computed values
-  const activeActivities = state.activities.filter(
-    activity => activity.status === ActivityStatus.AWAITING || 
-                activity.status === ActivityStatus.IN_TRANSIT
+  const activeActivities = useMemo(
+    () =>
+      state.activities.filter(
+        activity => activity.status === ActivityStatus.AWAITING || activity.status === ActivityStatus.IN_TRANSIT
+      ),
+    [state.activities]
   );
-  
-  const completedActivities = state.activities.filter(
-    activity => activity.status === ActivityStatus.COMPLETED || 
-                activity.status === ActivityStatus.CANCELLED ||
-                activity.type === ActivityType.TOPUP
+
+  const completedActivities = useMemo(
+    () =>
+      state.activities.filter(
+        activity =>
+          activity.status === ActivityStatus.COMPLETED ||
+          activity.status === ActivityStatus.CANCELLED ||
+          activity.type === ActivityType.TOPUP
+      ),
+    [state.activities]
   );
-  
-  const filteredActivities = state.activeTab === 'active' 
-    ? activeActivities 
-    : completedActivities;
+
+  const filteredActivities = useMemo(
+    () => (state.activeTab === 'active' ? activeActivities : completedActivities),
+    [state.activeTab, activeActivities, completedActivities]
+  );
 
   // Actions
-  const setActivities = (activities) => {
+  const setActivities = useCallback((activities) => {
     dispatch({ type: ActionTypes.SET_ACTIVITIES, payload: activities });
-  };
+  }, []);
 
-  const addActivity = (activity) => {
+  const addActivity = useCallback((activity) => {
     dispatch({ type: ActionTypes.ADD_ACTIVITY, payload: activity });
-  };
+  }, []);
 
-  const updateActivity = (updates) => {
+  const updateActivity = useCallback((updates) => {
     dispatch({ type: ActionTypes.UPDATE_ACTIVITY, payload: updates });
-  };
+  }, []);
 
-  const setCurrentActivity = (activity) => {
+  const setCurrentActivity = useCallback((activity) => {
     dispatch({ type: ActionTypes.SET_CURRENT_ACTIVITY, payload: activity });
-  };
+  }, []);
 
-  const setActiveTab = (tab) => {
+  const setActiveTab = useCallback((tab) => {
     dispatch({ type: ActionTypes.SET_ACTIVE_TAB, payload: tab });
-  };
+  }, []);
 
-  const setLoading = (isLoading) => {
+  const setLoading = useCallback((isLoading) => {
     dispatch({ type: ActionTypes.SET_LOADING, payload: isLoading });
-  };
+  }, []);
 
-  const setError = (error) => {
+  const setError = useCallback((error) => {
     dispatch({ type: ActionTypes.SET_ERROR, payload: error });
-  };
+  }, []);
 
-  const setSelectedItem = (item) => {
+  const setSelectedItem = useCallback((item) => {
     dispatch({ type: ActionTypes.SET_SELECTED_ITEM, payload: item });
-  };
+  }, []);
 
-  const setShowProofSheet = (show) => {
+  const setShowProofSheet = useCallback((show) => {
     dispatch({ type: ActionTypes.SET_SHOW_PROOF_SHEET, payload: show });
-  };
+  }, []);
 
-  const setShowTransactionSheet = (show) => {
+  const setShowTransactionSheet = useCallback((show) => {
     dispatch({ type: ActionTypes.SET_SHOW_TRANSACTION_SHEET, payload: show });
-  };
+  }, []);
 
-  const reset = () => {
+  const reset = useCallback(() => {
     dispatch({ type: ActionTypes.RESET });
-  };
+  }, []);
 
-  // Fetch activities
-  const fetchActivities = async () => {
+  const fetchActivities = useCallback(async () => {
     setLoading(true);
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // Mock data
-      const mockActivities = [
-        { id: '1', status: ActivityStatus.AWAITING, date: 'Today, 2:30 PM', address: 'GA-123-4567', price: '20', type: ActivityType.PICKUP },
-        { id: '2', status: ActivityStatus.COMPLETED, date: 'Mar 14, 2026', address: 'GA-099-1234', price: '40', type: ActivityType.PICKUP },
-        { id: '3', status: ActivityStatus.COMPLETED, date: 'Mar 10, 2026', address: 'GA-123-4567', price: '20', type: ActivityType.PICKUP },
-        { id: 'TXN001', status: 'success', date: 'Mar 15, 2026', amount: '50', type: ActivityType.TOPUP, method: 'momo' },
-        { id: 'TXN002', status: 'success', date: 'Mar 12, 2026', amount: '20', type: ActivityType.TOPUP, method: 'card' },
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setError('No authenticated user');
+        return;
+      }
+
+      const { data: requests, error: requestsError } = await supabase
+        .from('requests')
+        .select('*')
+        .eq('customer_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (requestsError) throw requestsError;
+
+      const { data: transactions, error: txError } = await supabase
+        .from('transactions')
+        .select('*')
+        .eq('customer_id', user.id)
+        .eq('type', 'topup')
+        .order('created_at', { ascending: false });
+
+      if (txError) throw txError;
+
+      const mappedActivities = [
+        ...(requests || []).map(r => ({
+          id: r.id,
+          status: mapRequestStatus(r.status),
+          date: r.created_at ? new Date(r.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A',
+          address: r.address || 'N/A',
+          price: r.price ? r.price.toString() : '0',
+          type: ActivityType.PICKUP,
+          eta: r.eta || null,
+          binSize: r.bin_size || null,
+          rider: r.rider_name || r.rider_phone ? {
+            name: r.rider_name || 'Assigned',
+            phone: r.rider_phone || 'N/A',
+          } : null,
+          completedAt: r.completed_at ? new Date(r.completed_at).toLocaleString() : null,
+        })),
+        ...(transactions || []).map(t => ({
+          id: t.id,
+          status: t.status || 'success',
+          date: t.created_at ? new Date(t.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A',
+          amount: t.amount ? t.amount.toString() : '0',
+          type: ActivityType.TOPUP,
+          method: t.payment_method || 'momo',
+        })),
       ];
-      
-      setActivities(mockActivities);
-    } catch (error) {
-      setError(error.message);
-    }
-  };
 
-  // Fetch single activity by ID
-  const fetchActivityById = async (id) => {
-    setLoading(true);
-    try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 300));
-      
-      // In production, fetch from API
-      const activity = state.activities.find(a => a.id === id);
-      setCurrentActivity(activity);
-      return activity;
+      setActivities(mappedActivities);
     } catch (error) {
       setError(error.message);
-      return null;
     }
-  };
+  }, [setLoading, setError, setActivities]);
+
+  const fetchActivityById = useCallback(
+    async id => {
+      setLoading(true);
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          setError('No authenticated user');
+          return null;
+        }
+
+        const { data: request } = await supabase
+          .from('requests')
+          .select('*')
+          .eq('id', id)
+          .eq('customer_id', user.id)
+          .single();
+
+        if (request) {
+          const activity = {
+            id: request.id,
+            type: ActivityType.PICKUP,
+            status: mapRequestStatus(request.status),
+            statusText: request.status,
+            date: request.created_at
+              ? new Date(request.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+              : 'N/A',
+            time: request.created_at
+              ? new Date(request.created_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+              : 'N/A',
+            address: request.address || 'N/A',
+            price: request.price ? request.price.toString() : '0',
+            binSize: request.bin_size || 'N/A',
+            eta: request.eta || null,
+            rider: request.rider_name || request.rider_phone
+              ? { name: request.rider_name || 'Assigned', phone: request.rider_phone || 'N/A' }
+              : null,
+            completedAt: request.completed_at ? new Date(request.completed_at).toLocaleString() : null,
+          };
+          setCurrentActivity(activity);
+          return activity;
+        }
+
+        const { data: transaction } = await supabase
+          .from('transactions')
+          .select('*')
+          .eq('id', id)
+          .eq('customer_id', user.id)
+          .single();
+
+        if (transaction) {
+          const activity = {
+            id: transaction.id,
+            type: ActivityType.TOPUP,
+            status: transaction.status || 'success',
+            statusText: transaction.status || 'success',
+            date: transaction.created_at
+              ? new Date(transaction.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+              : 'N/A',
+            time: transaction.created_at
+              ? new Date(transaction.created_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+              : 'N/A',
+            amount: transaction.amount ? transaction.amount.toString() : '0',
+            method: transaction.payment_method || 'momo',
+          };
+          setCurrentActivity(activity);
+          return activity;
+        }
+
+        setError('Activity not found');
+        return null;
+      } catch (error) {
+        setError(error.message);
+        return null;
+      }
+    },
+    [setLoading, setError, setCurrentActivity]
+  );
 
   const value = {
     ...state,

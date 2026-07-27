@@ -8,41 +8,7 @@ export const NotificationSheet = ({ visible, onClose, notifications = [] }) => {
   const { isDark } = useAppTheme();
   const theme = isDark ? COLORS.dark : COLORS.light;
 
-  // Default mock notifications - in production, this comes from your Django API
-  const defaultNotifications = [
-    { 
-      id: '1', 
-      type: 'status', 
-      title: 'Rider Arrived!', 
-      message: 'Your rider is at the gate for GA-123-4567.', 
-      time: '2m ago', 
-      icon: 'car-sport',
-      color: '#10B981' 
-    },
-    { 
-      id: '2', 
-      type: 'payment', 
-      title: 'Top-up Successful', 
-      message: 'GH₵ 50.00 added to your wallet.', 
-      time: '1h ago', 
-      icon: 'checkmark-circle',
-      color: '#3B82F6' 
-    },
-    { 
-      id: '3', 
-      type: 'info', 
-      title: 'Holiday Notice', 
-      message: 'Pickups may be delayed this Friday.', 
-      time: '5h ago', 
-      icon: 'information-circle',
-      color: '#F59E0B' 
-    },
-  ];
-
-  const displayNotifications = notifications.length > 0 ? notifications : defaultNotifications;
-
   const getIconName = (iconName) => {
-    // Map icon names to Ionicons
     const iconMap = {
       'truck': 'car-sport',
       'checkmark-circle': 'checkmark-circle',
@@ -50,6 +16,8 @@ export const NotificationSheet = ({ visible, onClose, notifications = [] }) => {
       'alert-circle': 'alert-circle',
       'wallet': 'wallet',
       'time': 'time',
+      'card': 'card',
+      'help-circle': 'help-circle',
     };
     return iconMap[iconName] || 'notifications';
   };
@@ -89,9 +57,10 @@ export const NotificationSheet = ({ visible, onClose, notifications = [] }) => {
           </View>
 
           <FlatList
-            data={displayNotifications}
+            data={notifications}
             keyExtractor={(item) => item.id}
             renderItem={renderItem}
+            extraData={notifications}
             showsVerticalScrollIndicator={false}
             ListEmptyComponent={
               <View style={styles.emptyState}>

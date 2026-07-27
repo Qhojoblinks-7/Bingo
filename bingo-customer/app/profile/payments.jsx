@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   View,
   Text,
@@ -13,29 +13,19 @@ import { BinGoHeader } from "@/components/BinGoHeader";
 import { BinGoInput } from "@/components/BinGoInput";
 import { BinGoButton } from "@/components/BinGoButton";
 import { useAppTheme } from "@/hooks/useThemeContext";
+import { supabase } from "@/lib/supabase";
 
-// Mock data for payment methods
-const INITIAL_PAYMENTS = [
-  {
-    id: "1",
-    type: "momo",
-    name: "MTN Mobile Money",
-    number: "****4567",
-    isDefault: true,
-  },
-  {
-    id: "2",
-    type: "momo",
-    name: "Vodafone Cash",
-    number: "****8901",
-    isDefault: false,
-  },
+// Network providers
+const providers = [
+  { id: "mtn", name: "MTN Mobile Money", icon: "phone-portrait" },
+  { id: "vodafone", name: "Vodafone Cash", icon: "call" },
+  { id: "airteltigo", name: "AirtelTigo Money", icon: "globe" },
 ];
 
 export default function PaymentMethods() {
   const { isDark } = useAppTheme();
 
-  const colors = isDark
+  const colors = useMemo(() => isDark
     ? {
         background: "#121212",
         card: "#1E1E1E",
@@ -55,29 +45,60 @@ export default function PaymentMethods() {
         white: "#FFFFFF",
         border: "#E5E7EB",
         inputBg: "#F3F4F6",
-      };
+      }, [isDark]);
 
-  const [paymentMethods, setPaymentMethods] = useState(INITIAL_PAYMENTS);
+  const [paymentMethods, setPaymentMethods] = useState([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [newPayment, setNewPayment] = useState({ name: "", number: "" });
   const [selectedProvider, setSelectedProvider] = useState("mtn");
 
-  const providers = [
-    { id: "mtn", name: "MTN Mobile Money", icon: "phone-portrait" },
-    { id: "vodafone", name: "Vodafone Cash", icon: "call" },
-    { id: "airteltigo", name: "AirtelTigo Money", icon: "globe" },
-  ];
+  useEffect(() => {
+    fetchPaymentMethods();
+  }, []);
 
-  const handleSetDefault = (id) => {
-    setPaymentMethods(
-      paymentMethods.map((pm) => ({
-        ...pm,
-        isDefault: pm.id === id,
-      })),
-    );
+  const fetchPaymentMethods = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from('payment_methods')
+        .select('*')
+        .eq('customer_id', user.id)
+        .order('is_default', { ascending: false });
+
+      if (error) throw error;
+      setPaymentMethods(data || []);
+    } catch (error) {
+      console.error('Error fetching payment methods:', error);
+      Alert.alert('Error', 'Failed to load payment methods');
+    }
   };
 
-  const handleDelete = (id, name) => {
+  const handleSetDefault = async (id) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      await supabase
+        .from('payment_methods')
+        .update({ is_default: false })
+        .eq('customer_id', user.id);
+
+      const { error } = await supabase
+        .from('payment_methods')
+        .update({ is_default: true })
+        .eq('id', id)
+        .eq('customer_id', user.id);
+
+      if (error) throw error;
+      fetchPaymentMethods();
+    } catch (_error) {
+      Alert.alert('Error', 'Failed to set default payment method');
+    }
+  };
+
+  const handleDelete = async (id, name) => {
     Alert.alert(
       "Remove Payment Method",
       `Are you sure you want to remove ${name}?`,
@@ -86,33 +107,59 @@ export default function PaymentMethods() {
         {
           text: "Remove",
           style: "destructive",
-          onPress: () => {
-            setPaymentMethods(paymentMethods.filter((pm) => pm.id !== id));
+          onPress: async () => {
+            try {
+              const { error } = await supabase
+                .from('payment_methods')
+                .delete()
+                .eq('id', id);
+
+              if (error) throw error;
+              fetchPaymentMethods();
+            } catch (_error) {
+              Alert.alert('Error', 'Failed to remove payment method');
+            }
           },
         },
-      ],
+      ]
     );
   };
 
-  const handleAddPayment = () => {
+  const handleAddPayment = async () => {
     if (!newPayment.number || newPayment.number.length < 10) {
       Alert.alert("Error", "Please enter a valid phone number");
       return;
     }
 
-    const provider = providers.find((p) => p.id === selectedProvider);
-    const newMethod = {
-      id: Date.now().toString(),
-      type: "momo",
-      name: provider.name,
-      number: "****" + newPayment.number.slice(-4),
-      isDefault: paymentMethods.length === 0,
-    };
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        Alert.alert('Error', 'No authenticated user');
+        return;
+      }
 
-    setPaymentMethods([...paymentMethods, newMethod]);
-    setShowAddModal(false);
-    setNewPayment({ name: "", number: "" });
-    Alert.alert("Success", "Payment method added successfully");
+      const provider = providers.find((p) => p.id === selectedProvider);
+      const { error } = await supabase
+        .from('payment_methods')
+        .insert({
+          customer_id: user.id,
+          type: 'momo',
+          name: provider.name,
+          number: "****" + newPayment.number.slice(-4),
+          is_default: paymentMethods.length === 0,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setShowAddModal(false);
+      setNewPayment({ name: "", number: "" });
+      fetchPaymentMethods();
+      Alert.alert("Success", "Payment method added successfully");
+    } catch (_error) {
+      Alert.alert('Error', 'Failed to add payment method');
+    }
   };
 
   const styles = useMemo(

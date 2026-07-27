@@ -1,8 +1,10 @@
-import { createContext, useContext, useReducer } from 'react';
+import { createContext, useContext, useReducer, useEffect } from 'react';
+import { supabase } from '../lib/supabase';
+import { authClient } from '../services/api';
+import { STORAGE_KEYS } from '../constants/Config';
 
-// Initial state
 const initialState = {
-  balance: '25.00',
+  balance: '0.00',
   currency: 'GH₵',
   minimumPickupPrice: 20.00,
   isLoading: false,
@@ -10,7 +12,6 @@ const initialState = {
   transactions: [],
 };
 
-// Action types
 const ActionTypes = {
   SET_BALANCE: 'SET_BALANCE',
   ADD_BALANCE: 'ADD_BALANCE',
@@ -22,7 +23,6 @@ const ActionTypes = {
   RESET: 'RESET',
 };
 
-// Reducer
 function walletReducer(state, action) {
   switch (action.type) {
     case ActionTypes.SET_BALANCE:
@@ -57,17 +57,13 @@ function walletReducer(state, action) {
   }
 }
 
-// Create context
 const WalletContext = createContext(null);
 
-// Provider component
 export function WalletProvider({ children }) {
   const [state, dispatch] = useReducer(walletReducer, initialState);
 
-  // Computed values
   const hasSufficientBalance = parseFloat(state.balance) >= state.minimumPickupPrice;
 
-  // Actions
   const setBalance = (balance) => {
     dispatch({ type: ActionTypes.SET_BALANCE, payload: balance });
   };
@@ -112,13 +108,23 @@ export function WalletProvider({ children }) {
     dispatch({ type: ActionTypes.RESET });
   };
 
-  // Mock API calls - replace with actual API
   const fetchBalance = async () => {
     setLoading(true);
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 500));
-      setBalance('25.00');
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setError('No authenticated user');
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('wallet')
+        .select('*')
+        .eq('customer_id', user.id)
+        .single();
+
+      if (error && error.code !== 'PGRST116') throw error;
+      setBalance(data?.balance?.toString() || '0.00');
     } catch (error) {
       setError(error.message);
     }
@@ -127,14 +133,27 @@ export function WalletProvider({ children }) {
   const topUp = async (amount) => {
     setLoading(true);
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('No authenticated user');
+
+      const { data, error } = await supabase
+        .from('transactions')
+        .insert({
+          customer_id: user.id,
+          type: 'topup',
+          amount,
+          status: 'completed',
+        })
+        .select();
+
+      if (error) throw error;
+
       addBalance(amount);
       addTransaction({
         type: 'topup',
-        amount: amount,
+        amount,
         status: 'completed',
-        description: `Top up of ${state.currency} ${amount.toFixed(2)}`,
+        description: `Top up of GH₵ ${amount.toFixed(2)}`,
       });
       return true;
     } catch (error) {
@@ -142,6 +161,10 @@ export function WalletProvider({ children }) {
       return false;
     }
   };
+
+  useEffect(() => {
+    fetchBalance();
+  }, []);
 
   const value = {
     ...state,
@@ -165,7 +188,6 @@ export function WalletProvider({ children }) {
   );
 }
 
-// Hook to use the store
 export function useWalletStore() {
   const context = useContext(WalletContext);
   if (!context) {

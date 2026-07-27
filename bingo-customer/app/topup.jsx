@@ -7,7 +7,7 @@ import { BinGoInput } from "../components/BinGoInput";
 import { BinGoButton } from "../components/BinGoButton";
 import { SuccessModal } from "../components/SuccessModal";
 import { useColors } from "../hooks/useColors";
-import { useTopUpStore, useWalletStore, TopUpMethods, QuickAmounts } from "../stores";
+import { useTopUpStore, useWalletStore, QuickAmounts } from "../stores";
 
 export default function TopUp() {
   const router = useRouter();
@@ -15,7 +15,7 @@ export default function TopUp() {
   
   // Use stores
   const { amount, method, isProcessing, isValidAmount, setAmount, setMethod, processTopUp, reset } = useTopUpStore();
-  const { addBalance } = useWalletStore();
+  const { fetchBalance } = useWalletStore();
   
   // Local UI state
   const [showSuccess, setShowSuccess] = React.useState(false);
@@ -23,12 +23,10 @@ export default function TopUp() {
   const quickAmounts = QuickAmounts.map(String);
 
   const handleTopUp = async () => {
-    // Process top-up
     const result = await processTopUp();
     
     if (result) {
-      // Add to wallet
-      addBalance(parseFloat(amount));
+      await fetchBalance();
       setShowSuccess(true);
     }
   };

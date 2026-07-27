@@ -8,45 +8,52 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Alert,
+  Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { COLORS } from '../constants/Colors';
 import { useAppTheme } from '../hooks/useThemeContext';
+import { useUserStore } from '../stores';
 
 export default function LoginScreen() {
   const router = useRouter();
-  const [phoneNumber, setPhoneNumber] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const { isDark } = useAppTheme();
-  
+  const { login } = useUserStore();
+
   const theme = isDark ? COLORS.dark : COLORS.light;
 
   const handleLogin = async () => {
-    if (!phoneNumber || !password) {
-      alert('Please enter both phone number and password');
+    if (!email.trim() || !password) {
+      Alert.alert('Error', 'Please enter both email and password');
       return;
     }
 
     setIsLoading(true);
-    
+
     try {
-      // TODO: Implement actual authentication
-      // For demo, navigate to tabs after "successful" login
-      setTimeout(() => {
+      const result = await login(email.trim(), password);
+      if (result.success) {
         router.replace('/(tabs)');
-      }, 500);
-    } catch (error) {
-      console.error('Login error:', error);
-      alert('Login failed. Please try again.');
+      } else {
+        Alert.alert('Login Failed', result.error || 'Please check your credentials and try again.');
+      }
+    } catch (_error) {
+      Alert.alert('Error', 'An unexpected error occurred. Please try again.');
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleSkipLogin = () => {
-    // For demo purposes - skip to main app
     router.replace('/(tabs)');
+  };
+
+  const handleSignUp = () => {
+    router.push('/signup');
   };
 
   return (
@@ -58,20 +65,26 @@ export default function LoginScreen() {
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
       >
+        {/* Logo */}
+        <View style={styles.logoContainer}>
+          <Image
+            source={require('../assets/images/logo2.png')}
+            style={styles.logoImage}
+            resizeMode="contain"
+          />
+        </View>
+
         {/* Header */}
         <View style={styles.header}>
-          <View style={[styles.logoContainer, { backgroundColor: COLORS.primary }]}>
-            <Text style={styles.logoIcon}>🗑️</Text>
-          </View>
           <Text style={[styles.title, { color: theme.text }]}>Welcome to BinGo</Text>
           <Text style={[styles.subtitle, { color: COLORS.muted }]}>Sign in to continue</Text>
         </View>
 
         {/* Form */}
         <View style={styles.form}>
-          {/* Phone Number Input */}
+          {/* Email Input */}
           <View style={styles.inputContainer}>
-            <Text style={[styles.label, { color: theme.text }]}>Phone Number</Text>
+            <Text style={[styles.label, { color: theme.text }]}>Email</Text>
             <TextInput
               style={[
                 styles.input, 
@@ -81,12 +94,13 @@ export default function LoginScreen() {
                   color: theme.text 
                 }
               ]}
-              placeholder="Enter your phone number"
+              placeholder="Enter your email"
               placeholderTextColor={COLORS.muted}
-              value={phoneNumber}
-              onChangeText={setPhoneNumber}
-              keyboardType="phone-pad"
-              autoComplete="tel"
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
             />
           </View>
 
@@ -146,8 +160,8 @@ export default function LoginScreen() {
         {/* Sign Up Link */}
         <View style={styles.footer}>
           <Text style={[styles.footerText, { color: COLORS.muted }]}>Don&apos;t have an account?</Text>
-          <TouchableOpacity>
-            <Text style={[styles.signUpText, { color: COLORS.primary }]} onPress={() => router.push('/onboarding')}> Sign Up</Text>
+          <TouchableOpacity onPress={handleSignUp}>
+            <Text style={[styles.signUpText, { color: COLORS.primary }]}> Sign Up</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -169,15 +183,13 @@ const styles = StyleSheet.create({
     marginBottom: 40,
   },
   logoContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 20,
-    justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 20,
+    justifyContent: 'center',
+    marginBottom: 24,
   },
-  logoIcon: {
-    fontSize: 36,
+  logoImage: {
+    width: 180,
+    height: 180,
   },
   title: {
     fontSize: 28,

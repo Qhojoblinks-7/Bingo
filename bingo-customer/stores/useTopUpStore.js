@@ -1,4 +1,6 @@
-import { createContext, useContext, useReducer } from 'react';
+import { createContext, useContext, useReducer, useEffect } from 'react';
+import { supabase } from '../lib/supabase';
+import { authClient } from '../services/api';
 
 // TopUp method types
 export const TopUpMethods = {
@@ -51,7 +53,6 @@ function topUpReducer(state, action) {
 // Create context
 const TopUpContext = createContext(null);
 
-// Provider component
 export function TopUpProvider({ children }) {
   const [state, dispatch] = useReducer(topUpReducer, initialState);
 
@@ -108,7 +109,7 @@ export function TopUpProvider({ children }) {
     dispatch({ type: ActionTypes.RESET });
   };
 
-  // Process top-up
+  // Process top-up - record transaction in Supabase
   const processTopUp = async () => {
     if (!isValidAmount) {
       setError('Please enter a valid amount');
@@ -119,17 +120,30 @@ export function TopUpProvider({ children }) {
     setError(null);
 
     try {
-      // Simulate API call to payment provider (Paystack, etc.)
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('No authenticated user');
 
-      // Create transaction details
+      const { data, error } = await supabase
+        .from('transactions')
+        .insert({
+          customer_id: user.id,
+          type: 'topup',
+          amount: amount,
+          payment_method: state.method,
+          status: 'completed',
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
       const transactionDetails = {
-        id: `TXN${Date.now()}`,
+        id: data.id,
         amount: amount,
         method: state.method,
         methodName: getMethodName(),
         status: 'success',
-        createdAt: new Date().toISOString(),
+        createdAt: data.created_at || new Date().toISOString(),
       };
 
       setTransactionDetails(transactionDetails);

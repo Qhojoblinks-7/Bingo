@@ -1,9 +1,10 @@
-import React, { useState, useMemo } from "react";
+import React, { useMemo, useCallback } from "react";
 import { View, Text, StyleSheet, Pressable } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useColors } from "@/hooks/useColors";
+import { useHeaderStore } from "@/stores";
 import { NotificationSheet } from "./NotificationSheet";
 
 export const BinGoHeader = ({
@@ -18,7 +19,7 @@ export const BinGoHeader = ({
   const insets = useSafeAreaInsets();
   const colors = useColors();
   const router = useRouter();
-  const [showNotifications, setShowNotifications] = useState(false);
+  const { showNotifications, setShowNotifications, fetchNotifications, notifications } = useHeaderStore();
 
   const handleBackPress = () => {
     if (onBack) {
@@ -28,14 +29,14 @@ export const BinGoHeader = ({
     }
   };
 
-  const handleNotificationPress = () => {
+  const handleNotificationPress = useCallback(() => {
     if (onNotificationPress) {
       onNotificationPress();
     } else {
-      // Default: show notification sheet
+      fetchNotifications();
       setShowNotifications(true);
     }
-  };
+  }, [fetchNotifications, setShowNotifications, onNotificationPress]);
 
   const handleHelpPress = () => {
     if (onHelpPress) {
@@ -143,6 +144,7 @@ export const BinGoHeader = ({
       <NotificationSheet
         visible={showNotifications}
         onClose={() => setShowNotifications(false)}
+        notifications={notifications}
       />
     </View>
   );

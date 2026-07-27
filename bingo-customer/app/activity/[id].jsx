@@ -1,5 +1,5 @@
-import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, Image, Pressable, Linking, Alert, Animated, Platform, RefreshControl } from 'react-native';
+import React, { useRef, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, Pressable, Linking, Alert, Animated, RefreshControl } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { BinGoHeader } from '../../components/BinGoHeader';
@@ -8,7 +8,7 @@ import { RiderProfileSheet } from '../../components/RiderProfileSheet';
 import { ProofOfServiceSheet } from '../../components/ProofOfServiceSheet';
 import { COLORS } from '../../constants/Colors';
 import { useAppTheme } from '../../hooks/useThemeContext';
-import { useActivityStore, useSupportStore, useActiveRequestStore, ActivityStatus } from '../../stores';
+import { useActivityStore, useActiveRequestStore, ActivityStatus } from '../../stores';
 import * as Notifications from 'expo-notifications';
 
 export default function ActivityDetails() {
@@ -19,7 +19,6 @@ export default function ActivityDetails() {
   
   // Use stores
   const { currentActivity, fetchActivityById } = useActivityStore();
-  const { showSupportSheet } = useSupportStore();
   const { cancelRequest, isLoading: isCancelling } = useActiveRequestStore();
   
   // Local UI state
@@ -33,7 +32,7 @@ export default function ActivityDetails() {
     if (id) {
       fetchActivityById(id);
     }
-  }, [id]);
+  }, [id, fetchActivityById]);
 
   // Handle pull-to-refresh
   const onRefresh = React.useCallback(async () => {
@@ -121,14 +120,6 @@ export default function ActivityDetails() {
     }
   }, [activityData?.rider?.phone]);
 
-  // 2. Track Rider Function - Show status timeline (no longer opens maps)
-  // This function is kept for compatibility but now shows the status timeline
-  const handleTrackRider = React.useCallback(() => {
-    // The status timeline is now shown inline in the UI
-    // This function can be used for future enhancements
-    console.log('Showing status timeline...');
-  }, []);
-
   // 2b. Schedule notification when rider is 30 meters away
   const schedule30MeterNotification = React.useCallback(async () => {
     try {
@@ -188,15 +179,6 @@ export default function ActivityDetails() {
     }
   }, [activityData?.rider?.phone]);
 
-  // 5. Support Function - Opens support sheet
-  const handleSupport = React.useCallback(() => {
-    showSupportSheet({ 
-      context: { activityId: id },
-      title: 'Get Help',
-      subtitle: 'How can we assist you with this pickup?'
-    });
-  }, [id, showSupportSheet]);
-
   // 6. Cancel Request Function
   const handleCancelRequest = React.useCallback(async () => {
     Alert.alert(
@@ -217,7 +199,7 @@ export default function ActivityDetails() {
               } else {
                 Alert.alert('Error', 'Failed to cancel request. Please try again.');
               }
-            } catch (error) {
+            } catch (_error) {
               Alert.alert('Error', 'An error occurred while cancelling your request.');
             }
           }
@@ -280,7 +262,7 @@ export default function ActivityDetails() {
         }),
       ]).start();
     }, 500);
-  }, []);
+  }, [connector1Anim, connector2Anim, step1Anim, step2Anim, step3Anim]);
 
   const getStatusColor = () => {
     if (isAwaiting) return '#F59E0B'; // Amber

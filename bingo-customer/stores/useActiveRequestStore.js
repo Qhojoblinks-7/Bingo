@@ -1,15 +1,7 @@
-import { createContext, useContext, useReducer } from 'react';
-
-// Request status enum
-export const RequestStatus = {
-  NONE: 'none',
-  PENDING: 'pending',
-  ACCEPTED: 'accepted',
-  IN_TRANSIT: 'in_transit',
-  ARRIVING: 'arriving',
-  COMPLETED: 'completed',
-  CANCELLED: 'cancelled',
-};
+import { createContext, useContext, useReducer, useEffect } from 'react';
+import { supabase } from '../lib/supabase';
+import { authClient } from '../services/api';
+import { RequestStatus } from './useActiveRequestStore';
 
 // Initial state
 const initialState = {
@@ -113,20 +105,35 @@ export function ActiveRequestProvider({ children }) {
     dispatch({ type: ActionTypes.RESET });
   };
 
-  // Mock API calls - replace with actual API
   const createRequest = async (requestData) => {
     setLoading(true);
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('No authenticated user');
+
+      const { data, error } = await supabase
+        .from('requests')
+        .insert({
+          ...requestData,
+          customer_id: user.id,
+          status: RequestStatus.PENDING,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
       const newRequest = {
-        id: Date.now().toString(),
-        status: RequestStatus.PENDING,
-        createdAt: new Date().toISOString(),
-        ...requestData,
+        id: data.id,
+        status: data.status,
+        rider: data.rider_name || 'Assigned',
+        eta: data.eta || 'Arriving soon',
+        pickupAddress: data.address,
+        binSize: data.bin_size,
+        price: data.price,
+        createdAt: data.created_at,
       };
-      
+
       setRequest(newRequest);
       return newRequest;
     } catch (error) {
@@ -138,17 +145,23 @@ export function ActiveRequestProvider({ children }) {
   const cancelRequest = async () => {
     setLoading(true);
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      if (state.currentRequest) {
-        addToHistory({
-          ...state.currentRequest,
-          status: RequestStatus.CANCELLED,
-          cancelledAt: new Date().toISOString(),
-        });
-      }
-      
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user || !state.currentRequest) throw new Error('No authenticated user or active request');
+
+      const { error } = await supabase
+        .from('requests')
+        .update({ status: RequestStatus.CANCELLED })
+        .eq('id', state.currentRequest.id)
+        .eq('customer_id', user.id);
+
+      if (error) throw error;
+
+      addToHistory({
+        ...state.currentRequest,
+        status: RequestStatus.CANCELLED,
+        cancelledAt: new Date().toISOString(),
+      });
+
       clearRequest();
       return true;
     } catch (error) {
@@ -157,15 +170,41 @@ export function ActiveRequestProvider({ children }) {
     }
   };
 
+  // Fetch active request from Supabase
   const fetchActiveRequest = async () => {
     setLoading(true);
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // Return mock active request or null
-      // In real app, this would fetch from backend
-      return state.currentRequest;
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setError('No authenticated user');
+        return null;
+      }
+
+      const { data, error } = await supabase
+        .from('requests')
+        .select('*')
+        .eq('customer_id', user.id)
+        .in('status', [RequestStatus.PENDING, RequestStatus.ACCEPTED, RequestStatus.IN_TRANSIT, RequestStatus.ARRIVING])
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (error && error.code !== 'PGRST116') throw error;
+      if (data) {
+        const request = {
+          id: data.id,
+          status: data.status,
+          rider: data.rider_name || 'Assigned',
+          eta: data.eta || 'Arriving soon',
+          pickupAddress: data.address,
+          binSize: data.bin_size,
+          price: data.price,
+          createdAt: data.created_at,
+        };
+        setRequest(request);
+        return request;
+      }
+      return null;
     } catch (error) {
       setError(error.message);
       return null;
@@ -175,11 +214,21 @@ export function ActiveRequestProvider({ children }) {
   const fetchRequestHistory = async () => {
     setLoading(true);
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // Return mock history
-      return state.requestHistory;
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setError('No authenticated user');
+        return [];
+      }
+
+      const { data, error } = await supabase
+        .from('requests')
+        .select('*')
+        .eq('customer_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setHistory(data || []);
+      return data || [];
     } catch (error) {
       setError(error.message);
       return [];

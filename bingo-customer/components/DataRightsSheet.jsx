@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import {
   View,
   Text,
@@ -19,13 +19,8 @@ export const DataRightsSheet = ({
   const { isDark } = useAppTheme();
   const theme = isDark ? COLORS.dark : COLORS.light;
   
-  const [downloading, setDownloading] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-
   const handleDownloadData = () => {
-    setDownloading(true);
     setTimeout(() => {
-      setDownloading(false);
       Alert.alert(
         "Request Submitted",
         "Your data will be sent to your email within 48 hours."
@@ -43,9 +38,7 @@ export const DataRightsSheet = ({
           text: "Delete",
           style: "destructive",
           onPress: () => {
-            setDeleting(true);
             setTimeout(() => {
-              setDeleting(false);
               Alert.alert(
                 "Account Deletion Scheduled",
                 "Your account will be deleted within 30 days."
@@ -108,7 +101,7 @@ export const DataRightsSheet = ({
           <View style={[styles.infoBox, { backgroundColor: isDark ? '#052e16' : '#F0FDF4' }]}>
             <Ionicons name="shield-checkmark" size={20} color={COLORS.primary} />
             <Text style={[styles.infoText, { color: theme.text }]}>
-              Under Ghana's Data Protection Act, you have rights over your personal data.
+              Under Ghana&apos;s Data Protection Act, you have rights over your personal data.
             </Text>
           </View>
 

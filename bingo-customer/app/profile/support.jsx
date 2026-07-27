@@ -4,14 +4,12 @@ import {
   Text,
   StyleSheet,
   Pressable,
-  Modal,
   Linking,
   Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { BinGoHeader } from "@/components/BinGoHeader";
-import { BinGoButton } from "@/components/BinGoButton";
 import { useAppTheme } from "@/hooks/useThemeContext";
 
 const SUPPORT_OPTIONS = [
@@ -89,7 +87,7 @@ export default function Support() {
   const { isDark } = useAppTheme();
   const [expandedFaq, setExpandedFaq] = useState(null);
 
-  const colors = isDark
+  const colors = useMemo(() => isDark
     ? {
         background: "#121212",
         card: "#1E1E1E",
@@ -109,7 +107,7 @@ export default function Support() {
         white: "#FFFFFF",
         border: "#E5E7EB",
         inputBg: "#F3F4F6",
-      };
+      }, [isDark]);
 
   const handleOptionPress = (option) => {
     if (option.id === "chat") {

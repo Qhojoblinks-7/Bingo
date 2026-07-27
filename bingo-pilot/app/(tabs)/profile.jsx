@@ -1,6 +1,6 @@
-// BinGo Pilot - Profile Screen
-// Pilot settings and account management
-import React from 'react';
+// BinGo Pilot - Profile Screen (Redesigned)
+// Pilot settings and account management with industrial aesthetic
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   ScrollView,
   Alert,
+  Switch,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { COLORS, SPACING, TYPOGRAPHY, BORDER_RADIUS } from '../../constants';
@@ -15,9 +16,82 @@ import useAuthStore from '../../stores/useAuthStore';
 import useMissionStore from '../../stores/useMissionStore';
 
 // ============================================
+// PILOT LEVEL SYSTEM
+// ============================================
+
+const getPilotLevel = (totalMissions) => {
+  if (totalMissions >= 201) return { level: 'Platinum', color: '#E5E4E2', gradient: ['#E5E4E2', '#C0C0C0'] };
+  if (totalMissions >= 51) return { level: 'Gold', color: '#FFD700', gradient: ['#FFD700', '#FFA500'] };
+  return { level: 'Silver', color: '#C0C0C0', gradient: ['#C0C0C0', '#A8A8A8'] };
+};
+
+// ============================================
+// STAT CARD COMPONENT (For Performance Dashboard)
+// ============================================
+
+const StatCard = ({ icon, label, value, color = COLORS.primary }) => (
+  <View style={styles.statCard}>
+    <Text style={styles.statCardIcon}>{icon}</Text>
+    <Text style={[styles.statCardValue, { color }]}>{value}</Text>
+    <Text style={styles.statCardLabel}>{label}</Text>
+  </View>
+);
+
+// ============================================
+// IDENTITY CARD COMPONENT (Header)
+// ============================================
+
+const IdentityCard = ({ pilotData, pilotLevel, isOnline }) => (
+  <View style={styles.identityCard}>
+    {/* Avatar with Gradient Border based on level */}
+    <View style={[styles.avatarWrapper, { borderColor: pilotLevel.color }]}>
+      <View style={styles.avatar}>
+        <Text style={styles.avatarText}>
+          {pilotData.first_name?.[0] || 'P'}{pilotData.last_name?.[0] || 'ilot'}
+        </Text>
+      </View>
+      {/* Verification Badge */}
+      <View style={styles.verifiedBadge}>
+        <Text style={styles.verifiedIcon}>✓</Text>
+      </View>
+    </View>
+
+    {/* Pilot Info */}
+    <View style={styles.identityInfo}>
+      <View style={styles.nameRow}>
+        <Text style={styles.pilotName}>
+          {pilotData.first_name || 'Pilot'} {pilotData.last_name || 'Name'}
+        </Text>
+        <View style={[styles.levelBadge, { backgroundColor: pilotLevel.color + '20', borderColor: pilotLevel.color }]}>
+          <Text style={[styles.levelBadgeText, { color: pilotLevel.color }]}>
+            {pilotLevel.level}
+          </Text>
+        </View>
+      </View>
+      
+      <Text style={styles.memberSince}>Member since {pilotData.member_since || 'Jan 2024'}</Text>
+
+      {/* Rating */}
+      <View style={styles.ratingRow}>
+        <View style={styles.ratingContainer}>
+          <Text style={styles.ratingValue}>★ {pilotData.rating || '4.9'}</Text>
+          <TouchableOpacity>
+            <Text style={styles.viewFeedback}>View feedback</Text>
+          </TouchableOpacity>
+        </View>
+        <View style={[styles.statusDot, { backgroundColor: isOnline ? COLORS.success : COLORS.muted }]}>
+          <Text style={styles.statusText}>{isOnline ? 'ONLINE' : 'OFFLINE'}</Text>
+        </View>
+      </View>
+    </View>
+  </View>
+);
+
+// ============================================
 // MENU ITEM COMPONENT
 // ============================================
-const MenuItem = ({ icon, title, subtitle, onPress, showArrow = true, danger = false }) => (
+
+const MenuItem = ({ icon, title, subtitle, onPress, showArrow = true, danger = false, rightElement }) => (
   <TouchableOpacity style={styles.menuItem} onPress={onPress}>
     <View style={styles.menuIcon}>
       <Text style={styles.menuIconText}>{icon}</Text>
@@ -26,17 +100,38 @@ const MenuItem = ({ icon, title, subtitle, onPress, showArrow = true, danger = f
       <Text style={[styles.menuTitle, danger && styles.menuTitleDanger]}>{title}</Text>
       {subtitle && <Text style={styles.menuSubtitle}>{subtitle}</Text>}
     </View>
-    {showArrow && <Text style={styles.menuArrow}>›</Text>}
+    {rightElement || (showArrow && <Text style={styles.menuArrow}>›</Text>)}
   </TouchableOpacity>
 );
 
 // ============================================
-// PROFILE SCREEN
+// SECTION CARD COMPONENT
 // ============================================
+
+const SectionCard = ({ title, icon, children }) => (
+  <View style={styles.sectionCard}>
+    <View style={styles.sectionHeader}>
+      <Text style={styles.sectionIcon}>{icon}</Text>
+      <Text style={styles.sectionTitle}>{title}</Text>
+    </View>
+    <View style={styles.sectionContent}>
+      {children}
+    </View>
+  </View>
+);
+
+// ============================================
+// MAIN PROFILE SCREEN
+// ============================================
+
 export default function ProfileScreen() {
   const router = useRouter();
   const { pilot, logout } = useAuthStore();
   const { isOnline, setOnline } = useMissionStore();
+
+  // Local state for toggles
+  const [darkMode, setDarkMode] = useState(true);
+  const [biometricLogin, setBiometricLogin] = useState(true);
 
   // Handle logout
   const handleLogout = () => {
@@ -59,20 +154,29 @@ export default function ProfileScreen() {
 
   // Handle menu navigation
   const handleMenuPress = (screen) => {
-    // TODO: Implement navigation to settings screens
     Alert.alert('Coming Soon', `The ${screen} screen will be available soon.`);
   };
 
-  // Sample pilot data
+  // Sample pilot data with extended info
   const pilotData = pilot || {
     first_name: 'John',
     last_name: 'Doe',
     email: 'pilot@bingo.com',
-    phone: '+1 234 567 8900',
-    vehicle_type: 'car',
+    phone: '+233 20 123 4567',
+    vehicle_type: 'Electric Tricycle',
+    vehicle_id: 'GW-2034-26',
     rating: 4.9,
     total_missions: 156,
+    accuracy: 94,
+    safety_score: 98,
+    member_since: 'January 2024',
+    license_status: 'Valid',
+    insurance_status: 'Valid',
+    atu_id: 'ATU-2024-7829',
   };
+
+  // Calculate pilot level
+  const pilotLevel = getPilotLevel(pilotData.total_missions || 0);
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
@@ -81,95 +185,50 @@ export default function ProfileScreen() {
         <Text style={styles.title}>Profile</Text>
       </View>
 
-      {/* Profile Card */}
-      <View style={styles.profileCard}>
-        <View style={styles.avatarContainer}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>
-              {pilotData.first_name[0]}{pilotData.last_name[0]}
-            </Text>
-          </View>
-          <View style={styles.onlineIndicator}>
-            <View style={[styles.onlineDot, { backgroundColor: isOnline ? COLORS.success : COLORS.muted }]} />
-          </View>
-        </View>
-        
-        <View style={styles.profileInfo}>
-          <Text style={styles.profileName}>
-            {pilotData.first_name} {pilotData.last_name}
-          </Text>
-          <Text style={styles.profileEmail}>{pilotData.email}</Text>
-          <View style={styles.profileStats}>
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>⭐ {pilotData.rating}</Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>📋 {pilotData.total_missions}</Text>
-            </View>
-          </View>
-        </View>
-      </View>
+      {/* IDENTITY CARD (Pilot Identity) */}
+      <IdentityCard 
+        pilotData={pilotData} 
+        pilotLevel={pilotLevel}
+        isOnline={isOnline}
+      />
 
-      {/* Quick Actions */}
-      <View style={styles.quickActions}>
-        <TouchableOpacity
-          style={[styles.quickAction, isOnline && styles.quickActionActive]}
-          onPress={() => setOnline(!isOnline)}
-        >
-          <Text style={styles.quickActionIcon}>{isOnline ? '🟢' : '⚪'}</Text>
-          <Text style={styles.quickActionText}>
-            {isOnline ? 'Go Offline' : 'Go Online'}
-          </Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity
-          style={styles.quickAction}
-          onPress={() => handleMenuPress('Documents')}
-        >
-          <Text style={styles.quickActionIcon}>📄</Text>
-          <Text style={styles.quickActionText}>Documents</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Vehicle Info Section */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>VEHICLE INFO</Text>
-        <View style={styles.sectionContent}>
-          <View style={styles.settingItem}>
-            <Text style={styles.settingLabel}>Registration</Text>
-            <Text style={styles.settingValue}>GW-2034-26</Text>
-          </View>
-          <View style={styles.settingItem}>
-            <Text style={styles.settingLabel}>Type</Text>
-            <Text style={styles.settingValue}>Electric Tricycle</Text>
-          </View>
-          <View style={[styles.settingItem, { borderBottomWidth: 0 }]}>
-            <Text style={styles.settingLabel}>Insurance</Text>
-            <Text style={[styles.settingValue, { color: COLORS.success }]}>Valid until Dec 2026</Text>
-          </View>
+      {/* PERFORMANCE DASHBOARD (Mini-Analytics) */}
+      <View style={styles.performanceDashboard}>
+        <Text style={styles.dashboardTitle}>PERFORMANCE</Text>
+        <View style={styles.statsGrid}>
+          <StatCard 
+            icon="🗑️" 
+            label="Missions" 
+            value={pilotData.total_missions || 0} 
+            color={COLORS.primary}
+          />
+          <StatCard 
+            icon="📍" 
+            label="Accuracy" 
+            value={`${pilotData.accuracy || 94}%`} 
+            color={COLORS.accent}
+          />
+          <StatCard 
+            icon="🛡️" 
+            label="Safety" 
+            value={`${pilotData.safety_score || 98}%`} 
+            color={COLORS.success}
+          />
         </View>
       </View>
 
-      {/* Account Section */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Account</Text>
-        <View style={styles.sectionContent}>
+      {/* SECTION A: Personal & Vehicle Information */}
+      <View style={styles.sectionsContainer}>
+        <SectionCard title="PERSONAL & VEHICLE" icon="🚛">
           <MenuItem
             icon="👤"
-            title="Edit Profile"
-            subtitle="Update your personal information"
+            title="Full Name"
+            subtitle={`${pilotData.first_name || ''} ${pilotData.last_name || ''}`}
             onPress={() => handleMenuPress('Edit Profile')}
           />
           <MenuItem
-            icon="🚗"
-            title="Vehicle"
-            subtitle={pilotData.vehicle_type || 'Not set'}
-            onPress={() => handleMenuPress('Vehicle')}
-          />
-          <MenuItem
             icon="📱"
-            title="Phone Number"
+            title="Phone"
             subtitle={pilotData.phone || 'Not verified'}
             onPress={() => handleMenuPress('Phone')}
           />
@@ -179,18 +238,84 @@ export default function ProfileScreen() {
             subtitle={pilotData.email || 'Not verified'}
             onPress={() => handleMenuPress('Email')}
           />
-        </View>
+          <MenuItem
+            icon="🛵"
+            title="Vehicle"
+            subtitle={`${pilotData.vehicle_type} • ${pilotData.vehicle_id}`}
+            onPress={() => handleMenuPress('Vehicle')}
+          />
+          <MenuItem
+            icon="📄"
+            title="License"
+            subtitle={pilotData.license_status || 'Not uploaded'}
+            onPress={() => handleMenuPress('License')}
+            rightElement={
+              <View style={[styles.statusPill, { backgroundColor: COLORS.success + '20' }]}>
+                <Text style={[styles.statusPillText, { color: COLORS.success }]}>
+                  {pilotData.license_status || 'Valid'}
+                </Text>
+              </View>
+            }
+          />
+          <MenuItem
+            icon="🛡️"
+            title="Insurance"
+            subtitle="Valid until Dec 2026"
+            onPress={() => handleMenuPress('Insurance')}
+            rightElement={
+              <View style={[styles.statusPill, { backgroundColor: COLORS.success + '20' }]}>
+                <Text style={[styles.statusPillText, { color: COLORS.success }]}>Valid</Text>
+              </View>
+            }
+          />
+          <MenuItem
+            icon="🎓"
+            title="ATU Student ID"
+            subtitle={pilotData.atu_id || 'Not linked'}
+            onPress={() => handleMenuPress('ATU ID')}
+            showArrow={false}
+          />
+        </SectionCard>
       </View>
 
-      {/* Preferences Section */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Preferences</Text>
-        <View style={styles.sectionContent}>
+      {/* SECTION B: Security & Preferences */}
+      <View style={styles.sectionsContainer}>
+        <SectionCard title="SECURITY & PREFERENCES" icon="⚙️">
           <MenuItem
-            icon="🔔"
-            title="Notifications"
-            subtitle="Push notifications & alerts"
-            onPress={() => handleMenuPress('Notifications')}
+            icon="🔐"
+            title="Change Password"
+            subtitle="Update your account password"
+            onPress={() => handleMenuPress('Change Password')}
+          />
+          <MenuItem
+            icon="👆"
+            title="Biometric Login"
+            subtitle="FaceID / Fingerprint"
+            onPress={() => setBiometricLogin(!biometricLogin)}
+            rightElement={
+              <Switch
+                value={biometricLogin}
+                onValueChange={setBiometricLogin}
+                trackColor={{ false: COLORS.muted, true: COLORS.primary }}
+                thumbColor={COLORS.white}
+              />
+            }
+            showArrow={false}
+          />
+          <MenuItem
+            icon="🌙"
+            title="Dark Mode"
+            subtitle="App theme preference"
+            onPress={() => setDarkMode(!darkMode)}
+            rightElement={
+              <Switch
+                value={darkMode}
+                onValueChange={setDarkMode}
+                trackColor={{ false: COLORS.muted, true: COLORS.primary }}
+                thumbColor={COLORS.white}
+              />
+            }
+            showArrow={false}
           />
           <MenuItem
             icon="🌍"
@@ -199,33 +324,32 @@ export default function ProfileScreen() {
             onPress={() => handleMenuPress('Language')}
           />
           <MenuItem
-            icon="📍"
-            title="Location"
-            subtitle="Manage location services"
-            onPress={() => handleMenuPress('Location')}
+            icon="🗺️"
+            title="Navigation"
+            subtitle="In-App Map"
+            onPress={() => handleMenuPress('Navigation')}
           />
-        </View>
+        </SectionCard>
       </View>
 
-      {/* Support Section */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Support</Text>
-        <View style={styles.sectionContent}>
+      {/* SECTION C: Support & Legal */}
+      <View style={styles.sectionsContainer}>
+        <SectionCard title="SUPPORT & LEGAL" icon="❓">
           <MenuItem
-            icon="❓"
+            icon="💬"
             title="Help Center"
             subtitle="FAQs and support articles"
             onPress={() => handleMenuPress('Help Center')}
           />
           <MenuItem
-            icon="💬"
-            title="Chat Support"
+            icon="📞"
+            title="Contact Support"
             subtitle="Talk to our support team"
-            onPress={() => handleMenuPress('Chat Support')}
+            onPress={() => handleMenuPress('Contact Support')}
           />
           <MenuItem
             icon="📋"
-            title="Terms & Conditions"
+            title="Terms of Service"
             onPress={() => handleMenuPress('Terms')}
           />
           <MenuItem
@@ -233,23 +357,25 @@ export default function ProfileScreen() {
             title="Privacy Policy"
             onPress={() => handleMenuPress('Privacy')}
           />
-        </View>
+        </SectionCard>
       </View>
 
-      {/* App Info */}
+      {/* EMERGENCY SOS */}
+      <TouchableOpacity style={styles.sosButton}>
+        <Text style={styles.sosIcon}>🚨</Text>
+        <Text style={styles.sosText}>EMERGENCY SOS SETTINGS</Text>
+      </TouchableOpacity>
+
+      {/* LOGOUT BUTTON */}
+      <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+        <Text style={styles.logoutIcon}>🚪</Text>
+        <Text style={styles.logoutText}>Logout</Text>
+      </TouchableOpacity>
+
+      {/* APP VERSION */}
       <View style={styles.appInfo}>
         <Text style={styles.appVersion}>BinGo Pilot v1.0.0</Text>
       </View>
-
-      {/* SOS Settings - High contrast, tucked away */}
-      <TouchableOpacity style={styles.sosToggle}>
-        <Text style={styles.sosText}>🚨 EMERGENCY SOS SETTINGS</Text>
-      </TouchableOpacity>
-
-      {/* Logout Button */}
-      <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-        <Text style={styles.logoutButtonText}>Logout</Text>
-      </TouchableOpacity>
 
       <View style={styles.bottomPadding} />
     </ScrollView>
@@ -271,7 +397,11 @@ const styles = StyleSheet.create({
     fontWeight: TYPOGRAPHY.fontWeight.bold,
     color: COLORS.white,
   },
-  profileCard: {
+
+  // ============================================
+  // IDENTITY CARD STYLES
+  // ============================================
+  identityCard: {
     marginHorizontal: SPACING.lg,
     backgroundColor: COLORS.surface,
     borderRadius: BORDER_RADIUS.lg,
@@ -281,13 +411,18 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.border,
   },
-  avatarContainer: {
+  avatarWrapper: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    borderWidth: 3,
+    padding: 3,
     position: 'relative',
   },
   avatar: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
+    width: '100%',
+    height: '100%',
+    borderRadius: 40,
     backgroundColor: COLORS.primary,
     justifyContent: 'center',
     alignItems: 'center',
@@ -297,57 +432,110 @@ const styles = StyleSheet.create({
     fontWeight: TYPOGRAPHY.fontWeight.bold,
     color: COLORS.white,
   },
-  onlineIndicator: {
+  verifiedBadge: {
     position: 'absolute',
     bottom: 0,
     right: 0,
-    backgroundColor: COLORS.surface,
-    borderRadius: 10,
-    padding: 2,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: COLORS.success,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: COLORS.surface,
   },
-  onlineDot: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
+  verifiedIcon: {
+    color: COLORS.white,
+    fontSize: 12,
+    fontWeight: '800',
   },
-  profileInfo: {
+  identityInfo: {
     flex: 1,
     marginLeft: SPACING.md,
   },
-  profileName: {
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  pilotName: {
     fontSize: TYPOGRAPHY.fontSize.lg,
     fontWeight: TYPOGRAPHY.fontWeight.bold,
     color: COLORS.white,
   },
-  profileEmail: {
+  levelBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  levelBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  memberSince: {
     fontSize: TYPOGRAPHY.fontSize.sm,
     color: COLORS.muted,
     marginTop: 2,
   },
-  profileStats: {
+  ratingRow: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginTop: SPACING.sm,
   },
-  statItem: {
-    paddingRight: SPACING.md,
-  },
-  statValue: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    color: COLORS.white,
-    fontWeight: TYPOGRAPHY.fontWeight.medium,
-  },
-  statDivider: {
-    width: 1,
-    backgroundColor: COLORS.border,
-    marginRight: SPACING.md,
-  },
-  quickActions: {
+  ratingContainer: {
     flexDirection: 'row',
-    paddingHorizontal: SPACING.lg,
-    marginTop: SPACING.lg,
-    gap: SPACING.md,
+    alignItems: 'center',
+    gap: 8,
   },
-  quickAction: {
+  ratingValue: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#FFD700', // Gold color for stars
+  },
+  viewFeedback: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    color: COLORS.accent,
+    textDecorationLine: 'underline',
+  },
+  statusDot: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  statusText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: COLORS.white,
+    letterSpacing: 0.5,
+  },
+
+  // ============================================
+  // PERFORMANCE DASHBOARD STYLES
+  // ============================================
+  performanceDashboard: {
+    marginHorizontal: SPACING.lg,
+    marginTop: SPACING.lg,
+  },
+  dashboardTitle: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold,
+    color: COLORS.muted,
+    marginBottom: SPACING.sm,
+    letterSpacing: 1,
+  },
+  statsGrid: {
+    flexDirection: 'row',
+    gap: SPACING.sm,
+  },
+  statCard: {
     flex: 1,
     backgroundColor: COLORS.surface,
     borderRadius: BORDER_RADIUS.md,
@@ -356,37 +544,56 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.border,
   },
-  quickActionActive: {
-    backgroundColor: COLORS.primary + '20',
-    borderColor: COLORS.primary,
-  },
-  quickActionIcon: {
+  statCardIcon: {
     fontSize: 24,
-    marginBottom: SPACING.xs,
+    marginBottom: 4,
   },
-  quickActionText: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    color: COLORS.white,
-    fontWeight: TYPOGRAPHY.fontWeight.medium,
+  statCardValue: {
+    fontSize: TYPOGRAPHY.fontSize.xl,
+    fontWeight: '800',
   },
-  section: {
+  statCardLabel: {
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    color: COLORS.muted,
+    marginTop: 2,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+
+  // ============================================
+  // SECTION STYLES
+  // ============================================
+  sectionsContainer: {
     marginTop: SPACING.lg,
     paddingHorizontal: SPACING.lg,
+  },
+  sectionCard: {
+    backgroundColor: COLORS.surface,
+    borderRadius: BORDER_RADIUS.lg,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    overflow: 'hidden',
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: SPACING.md,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+    backgroundColor: COLORS.background,
+  },
+  sectionIcon: {
+    fontSize: 16,
+    marginRight: 8,
   },
   sectionTitle: {
     fontSize: TYPOGRAPHY.fontSize.sm,
     fontWeight: TYPOGRAPHY.fontWeight.semibold,
     color: COLORS.muted,
-    marginBottom: SPACING.sm,
-    textTransform: 'uppercase',
     letterSpacing: 1,
   },
   sectionContent: {
     backgroundColor: COLORS.surface,
-    borderRadius: BORDER_RADIUS.md,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    overflow: 'hidden',
   },
   menuItem: {
     flexDirection: 'row',
@@ -396,16 +603,16 @@ const styles = StyleSheet.create({
     borderBottomColor: COLORS.border,
   },
   menuIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: COLORS.background,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: SPACING.md,
   },
   menuIconText: {
-    fontSize: 18,
+    fontSize: 16,
   },
   menuContent: {
     flex: 1,
@@ -427,32 +634,35 @@ const styles = StyleSheet.create({
     fontSize: 24,
     color: COLORS.muted,
   },
-  settingItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: SPACING.md,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+  statusPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
   },
-  settingLabel: {
-    fontSize: TYPOGRAPHY.fontSize.md,
-    color: COLORS.text,
-    fontWeight: TYPOGRAPHY.fontWeight.medium,
+  statusPillText: {
+    fontSize: 10,
+    fontWeight: '700',
+    textTransform: 'uppercase',
   },
-  settingValue: {
-    fontSize: TYPOGRAPHY.fontSize.md,
-    color: COLORS.muted,
-  },
-  sosToggle: {
+
+  // ============================================
+  // SOS & LOGOUT STYLES
+  // ============================================
+  sosButton: {
     marginHorizontal: SPACING.lg,
     marginTop: SPACING.lg,
     backgroundColor: COLORS.error + '15',
     borderRadius: BORDER_RADIUS.md,
     padding: SPACING.md,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     borderWidth: 1,
     borderColor: COLORS.error + '30',
+    gap: 8,
+  },
+  sosIcon: {
+    fontSize: 18,
   },
   sosText: {
     color: COLORS.error,
@@ -460,6 +670,31 @@ const styles = StyleSheet.create({
     fontSize: 12,
     letterSpacing: 0.5,
   },
+  logoutButton: {
+    marginHorizontal: SPACING.lg,
+    marginTop: SPACING.md,
+    backgroundColor: COLORS.error + '20',
+    borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.error,
+    gap: 8,
+  },
+  logoutIcon: {
+    fontSize: 18,
+  },
+  logoutText: {
+    fontSize: TYPOGRAPHY.fontSize.md,
+    color: COLORS.error,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold,
+  },
+
+  // ============================================
+  // FOOTER STYLES
+  // ============================================
   appInfo: {
     alignItems: 'center',
     marginTop: SPACING.xl,
@@ -467,21 +702,6 @@ const styles = StyleSheet.create({
   appVersion: {
     fontSize: TYPOGRAPHY.fontSize.sm,
     color: COLORS.muted,
-  },
-  logoutButton: {
-    marginHorizontal: SPACING.lg,
-    marginTop: SPACING.lg,
-    backgroundColor: COLORS.error + '20',
-    borderRadius: BORDER_RADIUS.md,
-    padding: SPACING.md,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: COLORS.error,
-  },
-  logoutButtonText: {
-    fontSize: TYPOGRAPHY.fontSize.md,
-    color: COLORS.error,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold,
   },
   bottomPadding: {
     height: SPACING.xl * 2,

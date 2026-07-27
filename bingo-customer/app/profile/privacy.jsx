@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Switch, Alert, Linking } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, Alert, Linking, Switch } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { BinGoHeader } from '@/components/BinGoHeader';
@@ -64,7 +64,7 @@ export default function Privacy() {
   const router = useRouter();
   const { isDark } = useAppTheme();
   
-  const colors = isDark ? {
+  const colors = useMemo(() => isDark ? {
     background: '#121212',
     card: '#1E1E1E',
     text: '#FFFFFF',
@@ -84,7 +84,7 @@ export default function Privacy() {
     border: '#E5E7EB',
     inputBg: '#F3F4F6',
     error: '#EF4444',
-  };
+  }, [isDark]);
 
   const [privacySettings, setPrivacySettings] = useState(
     PRIVACY_SETTINGS.reduce((acc, item) => {
@@ -121,14 +121,6 @@ export default function Privacy() {
     Linking.openURL(urls[type]).catch(() => {
       Alert.alert('Error', 'Unable to open link');
     });
-  };
-
-  const handleDownloadData = () => {
-    Alert.alert(
-      'Request Data Download',
-      'We will send your data to your registered email within 48 hours.',
-      [{ text: 'OK' }]
-    );
   };
 
   const handleDeleteAccount = () => {

@@ -15,10 +15,10 @@ export const unstable_settings = {
 
 function RootLayoutContent() {
   const colorScheme = useColorScheme();
-  const { resolvedScheme, isDark } = useAppTheme();
+  const { isDark } = useAppTheme();
   
   // Initialize push notifications
-  const { expoPushToken, notification } = usePushNotifications();
+  const { expoPushToken } = usePushNotifications();
   
   // Log push token for testing
   if (expoPushToken) {

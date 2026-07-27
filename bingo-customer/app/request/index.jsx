@@ -11,27 +11,26 @@ import { PaymentSelectionSheet } from '../../components/PaymentSelectionSheet';
 import { SuccessModal } from '../../components/SuccessModal';
 import { COLORS } from '../../constants/Colors';
 import { useAppTheme } from '../../hooks/useThemeContext';
-import { useRequestStore, useWalletStore, BinSizes, PaymentMethods } from '../../stores';
+import { useRequestStore, useWalletStore, useActiveRequestStore, useActivityStore, BinSizes, PaymentMethods, ActivityType } from '../../stores';
 
 export default function RequestPickup() {
   const router = useRouter();
   const { isDark } = useAppTheme();
   const theme = isDark ? COLORS.dark : COLORS.light;
   
-  // Use stores
   const { 
     address, binSize, notes, paymentMethod, isProcessing, error,
     setAddress, setBinSize, setNotes, setPaymentMethod, setProcessing, setError, reset 
   } = useRequestStore();
-  const { balance, deductBalance, minimumPickupPrice } = useWalletStore();
+  const { balance, deductBalance, fetchBalance } = useWalletStore();
+  const { setRequest } = useActiveRequestStore();
+  const { addActivity } = useActivityStore();
   
-  // Local UI state
   const [showBinPicker, setShowBinPicker] = React.useState(false);
   const [showPaymentSheet, setShowPaymentSheet] = React.useState(false);
   const [showSuccess, setShowSuccess] = React.useState(false);
   const [showErrorBanner, setShowErrorBanner] = React.useState(false);
 
-  // Bin options derived from store
   const binOptions = [
     { label: BinSizes.STANDARD.label, price: BinSizes.STANDARD.price, id: BinSizes.STANDARD.id },
     { label: BinSizes.LARGE.label, price: BinSizes.LARGE.price, id: BinSizes.LARGE.id },
@@ -64,28 +63,47 @@ export default function RequestPickup() {
     }
 
     try {
-      // Simulate API call to Django backend
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Submit request to backend
+      const requestDetails = await useRequestStore.getState().submitRequest(balance);
       
-      // Simulate success (in production: check for 201 Created)
-      const success = true;
-      
-      if (success) {
-        // Trigger haptic feedback
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        
+      if (requestDetails) {
         // Deduct from wallet if using wallet
-        if (paymentMethod === 'wallet') {
+        if (paymentMethod === PaymentMethods.WALLET) {
           deductBalance(parseFloat(selectedPrice));
+          await fetchBalance();
         }
+
+        // Update active request
+        setRequest({
+          id: requestDetails.id,
+          status: requestDetails.status,
+          rider: 'Assigned',
+          eta: 'Arriving soon',
+          pickupAddress: requestDetails.address,
+          binSize: requestDetails.binSize.label,
+          price: selectedPrice,
+          createdAt: requestDetails.createdAt,
+        });
+
+        // Add to activity feed
+        addActivity({
+          id: requestDetails.id,
+          status: requestDetails.status,
+          date: requestDetails.createdAt ? new Date(requestDetails.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Today',
+          address: requestDetails.address,
+          price: selectedPrice,
+          type: ActivityType.PICKUP,
+        });
+
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         
         // Show success modal
         setProcessing(false);
         setShowSuccess(true);
       } else {
-        throw new Error('No riders available');
+        throw new Error('Failed to create request. Please try again.');
       }
-    } catch (err) {
+    } catch (_err) {
       // Handle error
       setProcessing(false);
       setError('Sorry, no riders are currently active in your area. Please try again in a few minutes.');
